@@ -1,13 +1,10 @@
 const supabaseSettings = window.WAITER_SUPABASE || { url: "", anonKey: "" };
-const supabaseClient = window.supabase && supabaseSettings.url && supabaseSettings.anonKey
-  ? window.supabase.createClient(supabaseSettings.url, supabaseSettings.anonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
-    }
-  })
-  : null;
+const isSupabaseReady = Boolean(supabaseSettings.url && supabaseSettings.anonKey);
+const supabaseUrl = supabaseSettings.url
+  .replace(/\/$/, "")
+  .replace(/\/rest\/v1$/, "")
+  .replace(/\/auth\/v1$/, "");
+const sessionKey = "waiter.supabase.session";
 
 const authView = document.querySelector("#authView");
 const appView = document.querySelector("#appView");
@@ -49,6 +46,7 @@ let mode = "login";
 let currentUser = null;
 let state = null;
 let activeDay = "monday";
+let session = readStoredSession();
 
 const weekdays = [
   ["monday", "Segunda"],
@@ -79,6 +77,69 @@ function nickToEmail(nick) {
     .replace(/^[._-]+|[._-]+$/g, "");
 
   return `${clean || "user"}@waiter.internal`;
+}
+
+function readStoredSession() {
+  try {
+    return JSON.parse(localStorage.getItem(sessionKey));
+  } catch {
+    return null;
+  }
+}
+
+function storeSession(authData) {
+  session = {
+    access_token: authData.access_token,
+    refresh_token: authData.refresh_token,
+    expires_at: authData.expires_at,
+    user: authData.user
+  };
+  currentUser = authData.user;
+  localStorage.setItem(sessionKey, JSON.stringify(session));
+}
+
+function clearStoredSession() {
+  session = null;
+  localStorage.removeItem(sessionKey);
+}
+
+async function requestSupabase(path, options = {}) {
+  if (!isSupabaseReady) {
+    throw new Error("Supabase não configurado. Preencha url e anonKey em supabase-config.js.");
+  }
+
+  const headers = {
+    apikey: supabaseSettings.anonKey,
+    "Content-Type": "application/json",
+    ...options.headers
+  };
+
+  if (options.auth !== false && session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+
+  const response = await fetch(`${supabaseUrl}${path}`, {
+    ...options,
+    headers
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    throw new Error(data?.msg || data?.message || data?.error_description || data?.error || "Erro ao conectar ao Supabase.");
+  }
+
+  return data;
+}
+
+async function upsertProfile(userId, nick) {
+  await requestSupabase("/rest/v1/profiles?on_conflict=id", {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=merge-duplicates"
+    },
+    body: JSON.stringify({ id: userId, nick })
+  });
 }
 
 function createDefaultState(nick, restaurantName) {
@@ -148,7 +209,7 @@ function setMode(nextMode) {
   authSubtitle.textContent = isSignup
     ? "Crie seu acesso inicial para usar os dashboards."
     : "Use seu nick e senha para acessar os dashboards.";
-  authSubmit.textContent = isSignup ? "Criar conta" : "Entrar";
+  updateAuthSubmitText();
 
   modeButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.mode === mode);
@@ -156,6 +217,10 @@ function setMode(nextMode) {
   });
 
   clearAuthErrors();
+}
+
+function updateAuthSubmitText() {
+  authSubmit.textContent = mode === "signup" ? "Criar conta" : "Entrar";
 }
 
 function showFieldError(scope, fieldName, message) {
@@ -175,7 +240,7 @@ function clearFormErrors(scope) {
 
 function clearAuthErrors() {
   clearFormErrors(authForm);
-  authAlert.textContent = "";
+  authAlert.textContent = isSupabaseReady ? "" : "Supabase não configurado. Preencha url e anonKey em supabase-config.js.";
 }
 
 function validateAuth() {
@@ -205,42 +270,43 @@ function validateAuth() {
 }
 
 async function authenticate() {
-  if (!supabaseClient) {
-    throw new Error("Configure url e anonKey em supabase-config.js.");
-  }
-
   const data = new FormData(authForm);
   const nick = String(data.get("nick") || "").trim();
   const password = String(data.get("password") || "");
   const email = nickToEmail(nick);
 
   if (mode === "signup") {
-    const { data: authData, error } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: { data: { nick } }
+    const authData = await requestSupabase("/auth/v1/signup", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({
+        email,
+        password,
+        data: { nick }
+      })
     });
 
-    if (error) throw error;
     if (!authData.user) throw new Error("Cadastro criado. Confirme o usuário no Supabase para entrar.");
+    if (!authData.access_token) throw new Error("Cadastro criado. Entre novamente para iniciar a sessão.");
 
-    await supabaseClient.from("profiles").upsert({ id: authData.user.id, nick });
+    storeSession(authData);
+    await upsertProfile(authData.user.id, nick);
     return authData.user;
   }
 
-  const { data: authData, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) throw error;
+  const authData = await requestSupabase("/auth/v1/token?grant_type=password", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ email, password })
+  });
+
+  storeSession(authData);
   return authData.user;
 }
 
 async function loadState(nick, restaurantName) {
-  const { data, error } = await supabaseClient
-    .from("app_states")
-    .select("admin_state, restaurant_state")
-    .eq("user_id", currentUser.id)
-    .maybeSingle();
-
-  if (error) throw error;
+  const rows = await requestSupabase(`/rest/v1/app_states?user_id=eq.${currentUser.id}&select=admin_state,restaurant_state`);
+  const data = rows[0];
 
   if (data) {
     state = {
@@ -278,14 +344,18 @@ function normalizeState(nick) {
 }
 
 async function saveState() {
-  const { error } = await supabaseClient.from("app_states").upsert({
-    user_id: currentUser.id,
-    admin_state: state.admin,
-    restaurant_state: state.restaurant,
-    updated_at: new Date().toISOString()
+  await requestSupabase("/rest/v1/app_states?on_conflict=user_id", {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=merge-duplicates"
+    },
+    body: JSON.stringify({
+      user_id: currentUser.id,
+      admin_state: state.admin,
+      restaurant_state: state.restaurant,
+      updated_at: new Date().toISOString()
+    })
   });
-
-  if (error) throw error;
 }
 
 async function getSessionNick(user) {
@@ -293,29 +363,24 @@ async function getSessionNick(user) {
 
   if (metadataNick) return metadataNick;
 
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("nick")
-    .eq("id", user.id)
-    .maybeSingle();
+  const rows = await requestSupabase(`/rest/v1/profiles?id=eq.${user.id}&select=nick`);
+  const data = rows[0];
 
-  if (!error && data?.nick) return data.nick;
+  if (data?.nick) return data.nick;
 
   return user.email?.split("@")[0] || "Admin";
 }
 
 async function restoreSession() {
-  if (!supabaseClient) {
-    authAlert.textContent = "Configure url e anonKey em supabase-config.js.";
+  if (!isSupabaseReady) {
+    authAlert.textContent = "Supabase não configurado. Preencha url e anonKey em supabase-config.js.";
     return;
   }
 
-  const { data, error } = await supabaseClient.auth.getSession();
-
-  if (error || !data.session?.user) return;
+  if (!session?.access_token || !session?.user) return;
 
   try {
-    currentUser = data.session.user;
+    await refreshSession();
     const nick = await getSessionNick(currentUser);
 
     await loadState(nick, "");
@@ -326,6 +391,21 @@ async function restoreSession() {
   } catch (restoreError) {
     authAlert.textContent = restoreError.message || "Não foi possível restaurar sua sessão.";
   }
+}
+
+async function refreshSession() {
+  if (!session?.refresh_token) {
+    currentUser = session?.user || null;
+    return;
+  }
+
+  const authData = await requestSupabase("/auth/v1/token?grant_type=refresh_token", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ refresh_token: session.refresh_token })
+  });
+
+  storeSession(authData);
 }
 
 function getSelectedRestaurant() {
@@ -697,7 +777,7 @@ authForm.addEventListener("submit", async (event) => {
     authAlert.textContent = error.message || "Não foi possível entrar.";
   } finally {
     authSubmit.disabled = false;
-    setMode(mode);
+    updateAuthSubmitText();
   }
 });
 
@@ -717,12 +797,13 @@ dashboardButtons.forEach((button) => {
 
 logoutButtons.forEach((button) => {
   button.addEventListener("click", async () => {
-    if (supabaseClient) {
-      await supabaseClient.auth.signOut();
+    if (isSupabaseReady && session?.access_token) {
+      await requestSupabase("/auth/v1/logout", { method: "POST" }).catch(console.error);
     }
 
     currentUser = null;
     state = null;
+    clearStoredSession();
     appView.classList.add("hidden");
     authView.classList.remove("hidden");
     authForm.reset();
