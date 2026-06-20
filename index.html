@@ -34,7 +34,7 @@
         <div class="form-header">
           <p class="eyebrow">Acesso seguro</p>
           <h2 id="formTitle">Entrar no painel</h2>
-          <p id="formSubtitle">Use seu nome de acesso e senha para continuar gerenciando o restaurante.</p>
+          <p id="formSubtitle">Use seu nick de acesso e senha para continuar gerenciando o restaurante.</p>
         </div>
 
         <div class="mode-switch" role="tablist" aria-label="Escolha o modo de acesso">
@@ -48,8 +48,8 @@
 
         <form class="auth-form login-mode" id="authForm" novalidate>
           <div class="field-group">
-            <label for="name" id="nameLabel">Nome de acesso</label>
-            <input id="name" name="name" type="text" autocomplete="username" placeholder="Digite seu nome">
+            <label for="name" id="nameLabel">Nick de acesso</label>
+            <input id="name" name="name" type="text" autocomplete="username" placeholder="Digite seu nick">
             <small class="field-error" data-error-for="name"></small>
           </div>
 
@@ -70,24 +70,15 @@
             <small class="field-error" data-error-for="restaurant"></small>
           </div>
 
-          <div class="password-strength auth-extra" data-signup-only aria-live="polite">
-            <span class="strength-label">Força da senha</span>
-            <div class="strength-track" aria-hidden="true">
-              <span id="strengthBar"></span>
-            </div>
-            <span id="strengthText">Informe uma senha</span>
-          </div>
-
           <div class="form-options">
             <label class="check-row">
               <input type="checkbox" name="remember">
               <span>Lembrar acesso</span>
             </label>
-            <a id="forgotLink" href="#">Esqueci minha senha</a>
           </div>
 
           <button class="submit-button" type="submit" id="submitButton">
-            Entrar no admin
+            Entrar no painel
           </button>
 
           <p class="terms auth-extra" data-signup-only>
@@ -97,6 +88,164 @@
 
         <div class="form-alert" id="formAlert" role="status" aria-live="polite"></div>
       </div>
+    </section>
+  </main>
+
+  <main class="dashboard-shell restaurant-dashboard-shell hidden" id="restaurantDashboardShell">
+    <aside class="sidebar" aria-label="Controle do cardápio">
+      <div class="sidebar-header">
+        <a class="logo logo-dark" href="#" aria-label="Waiter Restaurante">
+          <span class="logo-mark">W</span>
+          <span>Waiter Restaurante</span>
+        </a>
+        <button class="icon-button" type="button" id="restaurantLogoutButton" aria-label="Sair do painel">Sair</button>
+      </div>
+
+      <form class="restaurant-form" id="categoryForm" novalidate>
+        <div class="section-title">
+          <span>Nova categoria</span>
+        </div>
+        <div class="field-group">
+          <label for="categoryName">Categoria</label>
+          <input id="categoryName" name="categoryName" type="text" placeholder="Ex: Pratos">
+          <small class="field-error" data-category-error-for="categoryName"></small>
+        </div>
+        <button class="submit-button compact" type="submit">Criar categoria</button>
+      </form>
+
+      <form class="restaurant-form" id="subcategoryForm" novalidate>
+        <div class="section-title">
+          <span>Nova subcategoria</span>
+        </div>
+        <div class="field-group">
+          <label for="subcategoryCategory">Categoria</label>
+          <select id="subcategoryCategory" name="subcategoryCategory"></select>
+          <small class="field-error" data-subcategory-error-for="subcategoryCategory"></small>
+        </div>
+        <div class="field-group">
+          <label for="subcategoryName">Subcategoria</label>
+          <input id="subcategoryName" name="subcategoryName" type="text" placeholder="Ex: Executivos">
+          <small class="field-error" data-subcategory-error-for="subcategoryName"></small>
+        </div>
+        <button class="submit-button compact" type="submit">Criar subcategoria</button>
+      </form>
+
+      <form class="restaurant-form" id="menuForm" novalidate>
+        <div class="section-title">
+          <span>Novo item</span>
+        </div>
+        <div class="field-group">
+          <label for="menuItemName">Nome do item</label>
+          <input id="menuItemName" name="menuItemName" type="text" placeholder="Ex: Burger da casa">
+          <small class="field-error" data-menu-error-for="menuItemName"></small>
+        </div>
+        <div class="field-group">
+          <label for="menuItemCategory">Categoria</label>
+          <select id="menuItemCategory" name="menuItemCategory"></select>
+          <small class="field-error" data-menu-error-for="menuItemCategory"></small>
+        </div>
+        <div class="field-group">
+          <label for="menuItemSubcategory">Subcategoria</label>
+          <select id="menuItemSubcategory" name="menuItemSubcategory"></select>
+        </div>
+        <div class="field-group">
+          <label for="menuItemPrice">Preço</label>
+          <input id="menuItemPrice" name="menuItemPrice" type="number" min="0" step="0.01" placeholder="Ex: 32.90">
+        </div>
+        <fieldset class="weekday-picker">
+          <legend>Dias disponíveis</legend>
+          <label><input type="checkbox" name="menuDays" value="monday" checked>Seg</label>
+          <label><input type="checkbox" name="menuDays" value="tuesday" checked>Ter</label>
+          <label><input type="checkbox" name="menuDays" value="wednesday" checked>Qua</label>
+          <label><input type="checkbox" name="menuDays" value="thursday" checked>Qui</label>
+          <label><input type="checkbox" name="menuDays" value="friday" checked>Sex</label>
+          <label><input type="checkbox" name="menuDays" value="saturday">Sáb</label>
+          <label><input type="checkbox" name="menuDays" value="sunday">Dom</label>
+        </fieldset>
+        <button class="submit-button compact" type="submit">Adicionar item</button>
+      </form>
+
+      <div class="restaurant-list-header">
+        <span>Itens ativos</span>
+        <strong id="activeMenuCount">0</strong>
+      </div>
+    </aside>
+
+    <section class="dashboard-main" aria-label="Dashboard do restaurante">
+      <header class="dashboard-topbar">
+        <div>
+          <p class="eyebrow">Cardápio</p>
+          <h1 id="restaurantGreeting">Controle do cardápio</h1>
+        </div>
+        <div class="dashboard-actions">
+          <div class="dashboard-switch" role="tablist" aria-label="Alternar dashboard">
+            <button class="dashboard-tab" type="button" data-dashboard-target="admin">Dashboard de admin</button>
+            <button class="dashboard-tab active" type="button" data-dashboard-target="restaurant">Dashboard de restaurante</button>
+          </div>
+          <div class="admin-badge">
+            <span id="restaurantInitial">R</span>
+            <div>
+              <strong id="restaurantUserName">Restaurante</strong>
+              <small>Operação</small>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="restaurant-overview" aria-label="Restaurante conectado">
+        <div class="selected-restaurant">
+          <span class="status-dot"></span>
+          <div>
+            <p class="eyebrow">Restaurante conectado</p>
+            <h2 id="restaurantPanelName">Restaurante</h2>
+            <p id="restaurantPanelMeta">Gerencie os itens disponíveis no cardápio.</p>
+          </div>
+        </div>
+        <button class="secondary-button" type="button" id="seedMenuButton">Adicionar itens demo</button>
+      </section>
+
+      <section class="orders-panel" aria-label="Itens do cardápio">
+        <div class="weekday-tabs" role="tablist" aria-label="Escolha o dia do cardápio">
+          <button class="weekday-tab active" type="button" data-menu-day="monday">Segunda</button>
+          <button class="weekday-tab" type="button" data-menu-day="tuesday">Terça</button>
+          <button class="weekday-tab" type="button" data-menu-day="wednesday">Quarta</button>
+          <button class="weekday-tab" type="button" data-menu-day="thursday">Quinta</button>
+          <button class="weekday-tab" type="button" data-menu-day="friday">Sexta</button>
+          <button class="weekday-tab" type="button" data-menu-day="saturday">Sábado</button>
+          <button class="weekday-tab" type="button" data-menu-day="sunday">Domingo</button>
+        </div>
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Itens</p>
+            <h2 id="menuDayTitle">Cardápio de segunda</h2>
+          </div>
+          <div class="filter-group" role="tablist" aria-label="Filtrar itens do cardápio">
+            <button class="menu-filter-button filter-button active" type="button" data-menu-status="all">Todos</button>
+            <button class="menu-filter-button filter-button" type="button" data-menu-status="Ativo">Ativos</button>
+            <button class="menu-filter-button filter-button" type="button" data-menu-status="Pausado">Pausados</button>
+          </div>
+        </div>
+
+        <div class="orders-table-wrap">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Categoria</th>
+                <th>Subcategoria</th>
+                <th>Preço</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="menuTableBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state hidden" id="emptyMenu">
+          <strong>Nenhum item no cardápio</strong>
+          <span>Adicione itens para começar a montar o cardápio do restaurante.</span>
+        </div>
+      </section>
     </section>
   </main>
 
@@ -139,11 +288,17 @@
           <p class="eyebrow">Painel geral</p>
           <h1 id="dashboardGreeting">Bem-vindo ao admin</h1>
         </div>
-        <div class="admin-badge">
-          <span id="adminInitial">A</span>
-          <div>
-            <strong id="adminName">Admin</strong>
-            <small>Administrador</small>
+        <div class="dashboard-actions">
+          <div class="dashboard-switch" role="tablist" aria-label="Alternar dashboard">
+            <button class="dashboard-tab active" type="button" data-dashboard-target="admin">Dashboard de admin</button>
+            <button class="dashboard-tab" type="button" data-dashboard-target="restaurant">Dashboard de restaurante</button>
+          </div>
+          <div class="admin-badge">
+            <span id="adminInitial">A</span>
+            <div>
+              <strong id="adminName">Admin</strong>
+              <small>Administrador</small>
+            </div>
           </div>
         </div>
       </header>
