@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin | Waiter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="auth-shell" id="authShell">
+    <section class="brand-panel" aria-label="Resumo do painel administrativo">
+      <nav class="brand-top" aria-label="Marca">
+        <a class="logo" href="#" aria-label="Waiter Admin">
+          <span class="logo-mark">W</span>
+          <span>Waiter Admin</span>
+        </a>
+        <span class="status-pill">Admin</span>
+      </nav>
+
+      <div class="brand-copy">
+        <p class="eyebrow">Gestão inteligente</p>
+        <h1>Administre restaurantes e pedidos com clareza.</h1>
+        <p>
+          Entre no painel para criar restaurantes, acompanhar pedidos e manter a operação organizada.
+        </p>
+      </div>
+    </section>
+
+    <section class="form-panel" aria-label="Acesso administrativo">
+      <div class="auth-card">
+        <div class="form-header">
+          <p class="eyebrow">Acesso seguro</p>
+          <h2 id="formTitle">Entrar no painel</h2>
+          <p id="formSubtitle">Use seu nome de acesso e senha para continuar gerenciando o restaurante.</p>
+        </div>
+
+        <div class="mode-switch" role="tablist" aria-label="Escolha o modo de acesso">
+          <button class="mode-button active" type="button" data-mode="login" role="tab" aria-selected="true">
+            Login
+          </button>
+          <button class="mode-button" type="button" data-mode="signup" role="tab" aria-selected="false">
+            Criar conta
+          </button>
+        </div>
+
+        <form class="auth-form login-mode" id="authForm" novalidate>
+          <div class="field-group">
+            <label for="name" id="nameLabel">Nome de acesso</label>
+            <input id="name" name="name" type="text" autocomplete="username" placeholder="Digite seu nome">
+            <small class="field-error" data-error-for="name"></small>
+          </div>
+
+          <div class="field-group">
+            <label for="password">Senha</label>
+            <div class="password-field">
+              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha">
+              <button class="ghost-button" type="button" id="togglePassword" aria-label="Mostrar senha">
+                Mostrar
+              </button>
+            </div>
+            <small class="field-error" data-error-for="password"></small>
+          </div>
+
+          <div class="field-group auth-extra" data-signup-only>
+            <label for="restaurant">Nome do restaurante</label>
+            <input id="restaurant" name="restaurant" type="text" autocomplete="organization" placeholder="Ex: Bistrô Central">
+            <small class="field-error" data-error-for="restaurant"></small>
+          </div>
+
+          <div class="password-strength auth-extra" data-signup-only aria-live="polite">
+            <span class="strength-label">Força da senha</span>
+            <div class="strength-track" aria-hidden="true">
+              <span id="strengthBar"></span>
+            </div>
+            <span id="strengthText">Informe uma senha</span>
+          </div>
+
+          <div class="form-options">
+            <label class="check-row">
+              <input type="checkbox" name="remember">
+              <span>Lembrar acesso</span>
+            </label>
+            <a id="forgotLink" href="#">Esqueci minha senha</a>
+          </div>
+
+          <button class="submit-button" type="submit" id="submitButton">
+            Entrar no admin
+          </button>
+
+          <p class="terms auth-extra" data-signup-only>
+            Ao criar sua conta, você concorda com os termos de uso e políticas de segurança.
+          </p>
+        </form>
+
+        <div class="form-alert" id="formAlert" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+  <main class="dashboard-shell hidden" id="dashboardShell">
+    <aside class="sidebar" aria-label="Restaurantes cadastrados">
+      <div class="sidebar-header">
+        <a class="logo logo-dark" href="#" aria-label="Waiter Admin">
+          <span class="logo-mark">W</span>
+          <span>Waiter Admin</span>
+        </a>
+        <button class="icon-button" type="button" id="logoutButton" aria-label="Sair do painel">Sair</button>
+      </div>
+
+      <form class="restaurant-form" id="restaurantForm" novalidate>
+        <div class="section-title">
+          <span>Novo restaurante</span>
+        </div>
+        <div class="field-group">
+          <label for="restaurantName">Nome</label>
+          <input id="restaurantName" name="restaurantName" type="text" placeholder="Ex: Jardim 82">
+          <small class="field-error" data-dashboard-error-for="restaurantName"></small>
+        </div>
+        <div class="field-group">
+          <label for="restaurantCategory">Categoria</label>
+          <input id="restaurantCategory" name="restaurantCategory" type="text" placeholder="Bistrô">
+        </div>
+        <button class="submit-button compact" type="submit">Criar restaurante</button>
+      </form>
+
+      <div class="restaurant-list-header">
+        <span>Restaurantes</span>
+        <strong id="restaurantCount">0</strong>
+      </div>
+      <div class="restaurant-list" id="restaurantList"></div>
+    </aside>
+
+    <section class="dashboard-main" aria-label="Dashboard administrativo">
+      <header class="dashboard-topbar">
+        <div>
+          <p class="eyebrow">Painel geral</p>
+          <h1 id="dashboardGreeting">Bem-vindo ao admin</h1>
+        </div>
+        <div class="admin-badge">
+          <span id="adminInitial">A</span>
+          <div>
+            <strong id="adminName">Admin</strong>
+            <small>Administrador</small>
+          </div>
+        </div>
+      </header>
+
+      <section class="restaurant-overview" aria-label="Restaurante selecionado">
+        <div class="selected-restaurant">
+          <span class="status-dot" id="selectedStatusDot"></span>
+          <div>
+            <p class="eyebrow">Restaurante ativo</p>
+            <h2 id="selectedRestaurantName">Nenhum restaurante selecionado</h2>
+            <p id="selectedRestaurantMeta">Crie ou selecione um restaurante para ver os pedidos.</p>
+          </div>
+        </div>
+        <button class="secondary-button" type="button" id="seedOrderButton">Adicionar pedido demo</button>
+      </section>
+
+      <section class="orders-panel" aria-label="Pedidos do restaurante">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Pedidos</p>
+            <h2>Fila operacional</h2>
+          </div>
+          <div class="filter-group" role="tablist" aria-label="Filtrar pedidos">
+            <button class="filter-button active" type="button" data-status="all">Todos</button>
+            <button class="filter-button" type="button" data-status="Pendente">Pendentes</button>
+            <button class="filter-button" type="button" data-status="Preparando">Preparando</button>
+            <button class="filter-button" type="button" data-status="Entregue">Entregues</button>
+          </div>
+        </div>
+
+        <div class="orders-table-wrap">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>Pedido</th>
+                <th>Itens</th>
+                <th>Status</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state hidden" id="emptyOrders">
+          <strong>Sem pedidos para exibir</strong>
+          <span>Quando este restaurante receber pedidos, eles aparecem aqui.</span>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
