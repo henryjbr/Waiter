@@ -3,353 +3,218 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin | Waiter</title>
+  <title>Waiter</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="auth-shell" id="authShell">
-    <section class="brand-panel" aria-label="Resumo do painel administrativo">
-      <nav class="brand-top" aria-label="Marca">
-        <a class="logo" href="#" aria-label="Waiter Admin">
-          <span class="logo-mark">W</span>
-          <span>Waiter Admin</span>
-        </a>
-        <span class="status-pill">Admin</span>
-      </nav>
-
-      <div class="brand-copy">
-        <p class="eyebrow">Gestão inteligente</p>
-        <h1>Administre restaurantes e pedidos com clareza.</h1>
-        <p>
-          Entre no painel para criar restaurantes, acompanhar pedidos e manter a operação organizada.
-        </p>
+  <main class="auth-view" id="authView">
+    <section class="auth-panel" aria-label="Acesso ao Waiter">
+      <div class="brand-line">
+        <span class="logo-mark">W</span>
+        <strong>Waiter</strong>
       </div>
+
+      <div class="auth-heading">
+        <p class="eyebrow">Acesso</p>
+        <h1 id="authTitle">Entrar no painel</h1>
+        <p id="authSubtitle">Use seu nick e senha para acessar os dashboards.</p>
+      </div>
+
+      <div class="mode-switch" role="tablist" aria-label="Modo de acesso">
+        <button class="mode-button active" type="button" data-mode="login" aria-selected="true">Login</button>
+        <button class="mode-button" type="button" data-mode="signup" aria-selected="false">Criar conta</button>
+      </div>
+
+      <form class="auth-form" id="authForm" novalidate>
+        <div class="field-group">
+          <label for="nick">Nick</label>
+          <input id="nick" name="nick" type="text" autocomplete="username" placeholder="Digite seu nick">
+          <small class="field-error" data-error-for="nick"></small>
+        </div>
+
+        <div class="field-group">
+          <label for="password">Senha</label>
+          <div class="password-field">
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha">
+            <button class="ghost-button" type="button" id="togglePassword">Mostrar</button>
+          </div>
+          <small class="field-error" data-error-for="password"></small>
+        </div>
+
+        <div class="field-group signup-only" id="restaurantSignupField">
+          <label for="restaurantNameSignup">Restaurante inicial</label>
+          <input id="restaurantNameSignup" name="restaurantNameSignup" type="text" autocomplete="organization" placeholder="Ex: Bistrô Central">
+          <small class="field-error" data-error-for="restaurantNameSignup"></small>
+        </div>
+
+        <button class="primary-button" type="submit" id="authSubmit">Entrar</button>
+      </form>
+
+      <div class="form-alert" id="authAlert" role="status" aria-live="polite"></div>
     </section>
+  </main>
 
-    <section class="form-panel" aria-label="Acesso administrativo">
-      <div class="auth-card">
-        <div class="form-header">
-          <p class="eyebrow">Acesso seguro</p>
-          <h2 id="formTitle">Entrar no painel</h2>
-          <p id="formSubtitle">Use seu nick de acesso e senha para continuar gerenciando o restaurante.</p>
+  <main class="app-view hidden" id="appView">
+    <section class="workspace-card" id="adminDashboard" aria-label="Dashboard de admin">
+      <header class="workspace-header">
+        <div>
+          <p class="eyebrow">Dashboard de admin</p>
+          <h1 id="adminGreeting">Restaurantes</h1>
         </div>
-
-        <div class="mode-switch" role="tablist" aria-label="Escolha o modo de acesso">
-          <button class="mode-button active" type="button" data-mode="login" role="tab" aria-selected="true">
-            Login
-          </button>
-          <button class="mode-button" type="button" data-mode="signup" role="tab" aria-selected="false">
-            Criar conta
-          </button>
+        <div class="header-actions">
+          <button class="tab-button active" type="button" data-dashboard="admin">Admin</button>
+          <button class="tab-button" type="button" data-dashboard="restaurant">Restaurante</button>
+          <button class="ghost-button" type="button" id="logoutButton">Sair</button>
         </div>
+      </header>
 
-        <form class="auth-form login-mode" id="authForm" novalidate>
+      <div class="workspace-grid">
+        <form class="stack-form" id="restaurantForm" novalidate>
+          <h2>Novo restaurante</h2>
           <div class="field-group">
-            <label for="name" id="nameLabel">Nick de acesso</label>
-            <input id="name" name="name" type="text" autocomplete="username" placeholder="Digite seu nick">
-            <small class="field-error" data-error-for="name"></small>
+            <label for="restaurantName">Nome</label>
+            <input id="restaurantName" name="restaurantName" type="text" placeholder="Ex: Jardim 82">
+            <small class="field-error" data-admin-error-for="restaurantName"></small>
           </div>
-
           <div class="field-group">
-            <label for="password">Senha</label>
-            <div class="password-field">
-              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha">
-              <button class="ghost-button" type="button" id="togglePassword" aria-label="Mostrar senha">
-                Mostrar
-              </button>
-            </div>
-            <small class="field-error" data-error-for="password"></small>
+            <label for="restaurantCategory">Categoria</label>
+            <input id="restaurantCategory" name="restaurantCategory" type="text" placeholder="Ex: Bistrô">
           </div>
-
-          <div class="field-group auth-extra" data-signup-only>
-            <label for="restaurant">Nome do restaurante</label>
-            <input id="restaurant" name="restaurant" type="text" autocomplete="organization" placeholder="Ex: Bistrô Central">
-            <small class="field-error" data-error-for="restaurant"></small>
-          </div>
-
-          <div class="form-options">
-            <label class="check-row">
-              <input type="checkbox" name="remember">
-              <span>Lembrar acesso</span>
-            </label>
-          </div>
-
-          <button class="submit-button" type="submit" id="submitButton">
-            Entrar no painel
-          </button>
-
-          <p class="terms auth-extra" data-signup-only>
-            Ao criar sua conta, você concorda com os termos de uso e políticas de segurança.
-          </p>
+          <button class="primary-button compact" type="submit">Criar restaurante</button>
         </form>
 
-        <div class="form-alert" id="formAlert" role="status" aria-live="polite"></div>
+        <div class="content-area">
+          <div class="toolbar">
+            <label for="restaurantSelect">Restaurante</label>
+            <select id="restaurantSelect"></select>
+            <button class="secondary-button" type="button" id="addOrderButton">Adicionar pedido demo</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Pedido</th>
+                  <th>Itens</th>
+                  <th>Status</th>
+                  <th>Hora</th>
+                </tr>
+              </thead>
+              <tbody id="ordersBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state hidden" id="emptyOrders">Nenhum pedido neste restaurante.</div>
+        </div>
       </div>
     </section>
-  </main>
 
-  <main class="dashboard-shell restaurant-dashboard-shell hidden" id="restaurantDashboardShell">
-    <aside class="sidebar" aria-label="Controle do cardápio">
-      <div class="sidebar-header">
-        <a class="logo logo-dark" href="#" aria-label="Waiter Restaurante">
-          <span class="logo-mark">W</span>
-          <span>Waiter Restaurante</span>
-        </a>
-        <button class="icon-button" type="button" id="restaurantLogoutButton" aria-label="Sair do painel">Sair</button>
-      </div>
-
-      <form class="restaurant-form" id="categoryForm" novalidate>
-        <div class="section-title">
-          <span>Nova categoria</span>
-        </div>
-        <div class="field-group">
-          <label for="categoryName">Categoria</label>
-          <input id="categoryName" name="categoryName" type="text" placeholder="Ex: Pratos">
-          <small class="field-error" data-category-error-for="categoryName"></small>
-        </div>
-        <button class="submit-button compact" type="submit">Criar categoria</button>
-      </form>
-
-      <form class="restaurant-form" id="subcategoryForm" novalidate>
-        <div class="section-title">
-          <span>Nova subcategoria</span>
-        </div>
-        <div class="field-group">
-          <label for="subcategoryCategory">Categoria</label>
-          <select id="subcategoryCategory" name="subcategoryCategory"></select>
-          <small class="field-error" data-subcategory-error-for="subcategoryCategory"></small>
-        </div>
-        <div class="field-group">
-          <label for="subcategoryName">Subcategoria</label>
-          <input id="subcategoryName" name="subcategoryName" type="text" placeholder="Ex: Executivos">
-          <small class="field-error" data-subcategory-error-for="subcategoryName"></small>
-        </div>
-        <button class="submit-button compact" type="submit">Criar subcategoria</button>
-      </form>
-
-      <form class="restaurant-form" id="menuForm" novalidate>
-        <div class="section-title">
-          <span>Novo item</span>
-        </div>
-        <div class="field-group">
-          <label for="menuItemName">Nome do item</label>
-          <input id="menuItemName" name="menuItemName" type="text" placeholder="Ex: Burger da casa">
-          <small class="field-error" data-menu-error-for="menuItemName"></small>
-        </div>
-        <div class="field-group">
-          <label for="menuItemCategory">Categoria</label>
-          <select id="menuItemCategory" name="menuItemCategory"></select>
-          <small class="field-error" data-menu-error-for="menuItemCategory"></small>
-        </div>
-        <div class="field-group">
-          <label for="menuItemSubcategory">Subcategoria</label>
-          <select id="menuItemSubcategory" name="menuItemSubcategory"></select>
-        </div>
-        <div class="field-group">
-          <label for="menuItemPrice">Preço</label>
-          <input id="menuItemPrice" name="menuItemPrice" type="number" min="0" step="0.01" placeholder="Ex: 32.90">
-        </div>
-        <fieldset class="weekday-picker">
-          <legend>Dias disponíveis</legend>
-          <label><input type="checkbox" name="menuDays" value="monday" checked>Seg</label>
-          <label><input type="checkbox" name="menuDays" value="tuesday" checked>Ter</label>
-          <label><input type="checkbox" name="menuDays" value="wednesday" checked>Qua</label>
-          <label><input type="checkbox" name="menuDays" value="thursday" checked>Qui</label>
-          <label><input type="checkbox" name="menuDays" value="friday" checked>Sex</label>
-          <label><input type="checkbox" name="menuDays" value="saturday">Sáb</label>
-          <label><input type="checkbox" name="menuDays" value="sunday">Dom</label>
-        </fieldset>
-        <button class="submit-button compact" type="submit">Adicionar item</button>
-      </form>
-
-      <div class="restaurant-list-header">
-        <span>Itens ativos</span>
-        <strong id="activeMenuCount">0</strong>
-      </div>
-    </aside>
-
-    <section class="dashboard-main" aria-label="Dashboard do restaurante">
-      <header class="dashboard-topbar">
+    <section class="workspace-card hidden" id="restaurantDashboard" aria-label="Dashboard de restaurante">
+      <header class="workspace-header">
         <div>
-          <p class="eyebrow">Cardápio</p>
-          <h1 id="restaurantGreeting">Controle do cardápio</h1>
+          <p class="eyebrow">Dashboard de restaurante</p>
+          <h1 id="restaurantGreeting">Cardápio</h1>
         </div>
-        <div class="dashboard-actions">
-          <div class="dashboard-switch" role="tablist" aria-label="Alternar dashboard">
-            <button class="dashboard-tab" type="button" data-dashboard-target="admin">Dashboard de admin</button>
-            <button class="dashboard-tab active" type="button" data-dashboard-target="restaurant">Dashboard de restaurante</button>
-          </div>
-          <div class="admin-badge">
-            <span id="restaurantInitial">R</span>
-            <div>
-              <strong id="restaurantUserName">Restaurante</strong>
-              <small>Operação</small>
-            </div>
-          </div>
+        <div class="header-actions">
+          <button class="tab-button" type="button" data-dashboard="admin">Admin</button>
+          <button class="tab-button active" type="button" data-dashboard="restaurant">Restaurante</button>
+          <button class="ghost-button" type="button" id="restaurantLogoutButton">Sair</button>
         </div>
       </header>
 
-      <section class="restaurant-overview" aria-label="Restaurante conectado">
-        <div class="selected-restaurant">
-          <span class="status-dot"></span>
-          <div>
-            <p class="eyebrow">Restaurante conectado</p>
-            <h2 id="restaurantPanelName">Restaurante</h2>
-            <p id="restaurantPanelMeta">Gerencie os itens disponíveis no cardápio.</p>
-          </div>
-        </div>
-        <button class="secondary-button" type="button" id="seedMenuButton">Adicionar itens demo</button>
-      </section>
-
-      <section class="orders-panel" aria-label="Itens do cardápio">
-        <div class="weekday-tabs" role="tablist" aria-label="Escolha o dia do cardápio">
-          <button class="weekday-tab active" type="button" data-menu-day="monday">Segunda</button>
-          <button class="weekday-tab" type="button" data-menu-day="tuesday">Terça</button>
-          <button class="weekday-tab" type="button" data-menu-day="wednesday">Quarta</button>
-          <button class="weekday-tab" type="button" data-menu-day="thursday">Quinta</button>
-          <button class="weekday-tab" type="button" data-menu-day="friday">Sexta</button>
-          <button class="weekday-tab" type="button" data-menu-day="saturday">Sábado</button>
-          <button class="weekday-tab" type="button" data-menu-day="sunday">Domingo</button>
-        </div>
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Itens</p>
-            <h2 id="menuDayTitle">Cardápio de segunda</h2>
-          </div>
-          <div class="filter-group" role="tablist" aria-label="Filtrar itens do cardápio">
-            <button class="menu-filter-button filter-button active" type="button" data-menu-status="all">Todos</button>
-            <button class="menu-filter-button filter-button" type="button" data-menu-status="Ativo">Ativos</button>
-            <button class="menu-filter-button filter-button" type="button" data-menu-status="Pausado">Pausados</button>
-          </div>
-        </div>
-
-        <div class="orders-table-wrap">
-          <table class="orders-table">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Categoria</th>
-                <th>Subcategoria</th>
-                <th>Preço</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody id="menuTableBody"></tbody>
-          </table>
-        </div>
-        <div class="empty-state hidden" id="emptyMenu">
-          <strong>Nenhum item no cardápio</strong>
-          <span>Adicione itens para começar a montar o cardápio do restaurante.</span>
-        </div>
-      </section>
-    </section>
-  </main>
-
-  <main class="dashboard-shell hidden" id="dashboardShell">
-    <aside class="sidebar" aria-label="Restaurantes cadastrados">
-      <div class="sidebar-header">
-        <a class="logo logo-dark" href="#" aria-label="Waiter Admin">
-          <span class="logo-mark">W</span>
-          <span>Waiter Admin</span>
-        </a>
-        <button class="icon-button" type="button" id="logoutButton" aria-label="Sair do painel">Sair</button>
-      </div>
-
-      <form class="restaurant-form" id="restaurantForm" novalidate>
-        <div class="section-title">
-          <span>Novo restaurante</span>
-        </div>
-        <div class="field-group">
-          <label for="restaurantName">Nome</label>
-          <input id="restaurantName" name="restaurantName" type="text" placeholder="Ex: Jardim 82">
-          <small class="field-error" data-dashboard-error-for="restaurantName"></small>
-        </div>
-        <div class="field-group">
-          <label for="restaurantCategory">Categoria</label>
-          <input id="restaurantCategory" name="restaurantCategory" type="text" placeholder="Bistrô">
-        </div>
-        <button class="submit-button compact" type="submit">Criar restaurante</button>
-      </form>
-
-      <div class="restaurant-list-header">
-        <span>Restaurantes</span>
-        <strong id="restaurantCount">0</strong>
-      </div>
-      <div class="restaurant-list" id="restaurantList"></div>
-    </aside>
-
-    <section class="dashboard-main" aria-label="Dashboard administrativo">
-      <header class="dashboard-topbar">
-        <div>
-          <p class="eyebrow">Painel geral</p>
-          <h1 id="dashboardGreeting">Bem-vindo ao admin</h1>
-        </div>
-        <div class="dashboard-actions">
-          <div class="dashboard-switch" role="tablist" aria-label="Alternar dashboard">
-            <button class="dashboard-tab active" type="button" data-dashboard-target="admin">Dashboard de admin</button>
-            <button class="dashboard-tab" type="button" data-dashboard-target="restaurant">Dashboard de restaurante</button>
-          </div>
-          <div class="admin-badge">
-            <span id="adminInitial">A</span>
-            <div>
-              <strong id="adminName">Admin</strong>
-              <small>Administrador</small>
+      <div class="workspace-grid">
+        <div class="form-column">
+          <form class="stack-form" id="categoryForm" novalidate>
+            <h2>Categoria</h2>
+            <div class="field-group">
+              <label for="categoryName">Nome</label>
+              <input id="categoryName" name="categoryName" type="text" placeholder="Ex: Pratos">
+              <small class="field-error" data-category-error-for="categoryName"></small>
             </div>
-          </div>
-        </div>
-      </header>
+            <button class="primary-button compact" type="submit">Criar categoria</button>
+          </form>
 
-      <section class="restaurant-overview" aria-label="Restaurante selecionado">
-        <div class="selected-restaurant">
-          <span class="status-dot" id="selectedStatusDot"></span>
-          <div>
-            <p class="eyebrow">Restaurante ativo</p>
-            <h2 id="selectedRestaurantName">Nenhum restaurante selecionado</h2>
-            <p id="selectedRestaurantMeta">Crie ou selecione um restaurante para ver os pedidos.</p>
-          </div>
-        </div>
-        <button class="secondary-button" type="button" id="seedOrderButton">Adicionar pedido demo</button>
-      </section>
+          <form class="stack-form" id="subcategoryForm" novalidate>
+            <h2>Subcategoria</h2>
+            <div class="field-group">
+              <label for="subcategoryCategory">Categoria</label>
+              <select id="subcategoryCategory" name="subcategoryCategory"></select>
+              <small class="field-error" data-subcategory-error-for="subcategoryCategory"></small>
+            </div>
+            <div class="field-group">
+              <label for="subcategoryName">Nome</label>
+              <input id="subcategoryName" name="subcategoryName" type="text" placeholder="Ex: Executivos">
+              <small class="field-error" data-subcategory-error-for="subcategoryName"></small>
+            </div>
+            <button class="primary-button compact" type="submit">Criar subcategoria</button>
+          </form>
 
-      <section class="orders-panel" aria-label="Pedidos do restaurante">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Pedidos</p>
-            <h2>Fila operacional</h2>
-          </div>
-          <div class="filter-group" role="tablist" aria-label="Filtrar pedidos">
-            <button class="filter-button active" type="button" data-status="all">Todos</button>
-            <button class="filter-button" type="button" data-status="Pendente">Pendentes</button>
-            <button class="filter-button" type="button" data-status="Preparando">Preparando</button>
-            <button class="filter-button" type="button" data-status="Entregue">Entregues</button>
-          </div>
+          <form class="stack-form" id="menuForm" novalidate>
+            <h2>Item</h2>
+            <div class="field-group">
+              <label for="itemName">Nome</label>
+              <input id="itemName" name="itemName" type="text" placeholder="Ex: Burger da casa">
+              <small class="field-error" data-menu-error-for="itemName"></small>
+            </div>
+            <div class="field-group">
+              <label for="itemCategory">Categoria</label>
+              <select id="itemCategory" name="itemCategory"></select>
+              <small class="field-error" data-menu-error-for="itemCategory"></small>
+            </div>
+            <div class="field-group">
+              <label for="itemSubcategory">Subcategoria</label>
+              <select id="itemSubcategory" name="itemSubcategory"></select>
+            </div>
+            <div class="field-group">
+              <label for="itemPrice">Preço</label>
+              <input id="itemPrice" name="itemPrice" type="number" min="0" step="0.01" placeholder="Ex: 32.90">
+            </div>
+            <fieldset class="weekday-picker">
+              <legend>Dias</legend>
+              <label><input type="checkbox" name="itemDays" value="monday" checked>Seg</label>
+              <label><input type="checkbox" name="itemDays" value="tuesday" checked>Ter</label>
+              <label><input type="checkbox" name="itemDays" value="wednesday" checked>Qua</label>
+              <label><input type="checkbox" name="itemDays" value="thursday" checked>Qui</label>
+              <label><input type="checkbox" name="itemDays" value="friday" checked>Sex</label>
+              <label><input type="checkbox" name="itemDays" value="saturday">Sáb</label>
+              <label><input type="checkbox" name="itemDays" value="sunday">Dom</label>
+            </fieldset>
+            <button class="primary-button compact" type="submit">Adicionar item</button>
+          </form>
         </div>
 
-        <div class="orders-table-wrap">
-          <table class="orders-table">
-            <thead>
-              <tr>
-                <th>Pedido</th>
-                <th>Itens</th>
-                <th>Status</th>
-                <th>Hora</th>
-              </tr>
-            </thead>
-            <tbody id="ordersTableBody"></tbody>
-          </table>
+        <div class="content-area">
+          <div class="weekday-tabs" id="weekdayTabs" aria-label="Dia do cardápio"></div>
+          <div class="toolbar">
+            <strong id="menuDayTitle">Cardápio de segunda</strong>
+            <button class="secondary-button" type="button" id="addMenuDemoButton">Adicionar demo</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Categoria</th>
+                  <th>Subcategoria</th>
+                  <th>Preço</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="menuBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state hidden" id="emptyMenu">Nenhum item neste dia.</div>
         </div>
-        <div class="empty-state hidden" id="emptyOrders">
-          <strong>Sem pedidos para exibir</strong>
-          <span>Quando este restaurante receber pedidos, eles aparecem aqui.</span>
-        </div>
-      </section>
+      </div>
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
