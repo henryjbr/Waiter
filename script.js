@@ -1,6 +1,12 @@
 const supabaseSettings = window.WAITER_SUPABASE || { url: "", anonKey: "" };
 const supabaseClient = window.supabase && supabaseSettings.url && supabaseSettings.anonKey
-  ? window.supabase.createClient(supabaseSettings.url, supabaseSettings.anonKey)
+  ? window.supabase.createClient(supabaseSettings.url, supabaseSettings.anonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  })
   : null;
 
 const authView = document.querySelector("#authView");
@@ -280,6 +286,46 @@ async function saveState() {
   });
 
   if (error) throw error;
+}
+
+async function getSessionNick(user) {
+  const metadataNick = user.user_metadata?.nick;
+
+  if (metadataNick) return metadataNick;
+
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("nick")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!error && data?.nick) return data.nick;
+
+  return user.email?.split("@")[0] || "Admin";
+}
+
+async function restoreSession() {
+  if (!supabaseClient) {
+    authAlert.textContent = "Configure url e anonKey em supabase-config.js.";
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+
+  if (error || !data.session?.user) return;
+
+  try {
+    currentUser = data.session.user;
+    const nick = await getSessionNick(currentUser);
+
+    await loadState(nick, "");
+    authView.classList.add("hidden");
+    appView.classList.remove("hidden");
+    showDashboard("admin");
+    renderApp();
+  } catch (restoreError) {
+    authAlert.textContent = restoreError.message || "Não foi possível restaurar sua sessão.";
+  }
 }
 
 function getSelectedRestaurant() {
@@ -671,7 +717,10 @@ dashboardButtons.forEach((button) => {
 
 logoutButtons.forEach((button) => {
   button.addEventListener("click", async () => {
-    await supabaseClient.auth.signOut();
+    if (supabaseClient) {
+      await supabaseClient.auth.signOut();
+    }
+
     currentUser = null;
     state = null;
     appView.classList.add("hidden");
@@ -693,3 +742,5 @@ subcategoryForm.addEventListener("submit", createSubcategory);
 menuForm.addEventListener("submit", createMenuItem);
 itemCategory.addEventListener("change", renderSubcategorySelect);
 addMenuDemoButton.addEventListener("click", addDemoMenu);
+
+restoreSession();
