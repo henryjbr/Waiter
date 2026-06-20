@@ -23,6 +23,21 @@ body {
   background: linear-gradient(135deg, #f9fafb 0%, #fff7ed 100%);
 }
 
+body.booting .auth-view,
+body.booting .app-view {
+  display: none;
+}
+
+.boot-screen {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  color: var(--muted);
+  font-weight: 900;
+}
+
 button,
 input,
 select {
@@ -258,6 +273,22 @@ select.has-error {
   border-color: rgba(249, 115, 22, 0.35);
 }
 
+.danger-button:hover:not(:disabled) {
+  color: var(--danger);
+  background: #fff0f0;
+  border-color: rgba(196, 61, 61, 0.28);
+}
+
+.danger-confirm {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  box-shadow: 0 16px 32px rgba(220, 38, 38, 0.22);
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .field-error {
   min-height: 16px;
   color: var(--danger);
@@ -273,13 +304,15 @@ select.has-error {
 }
 
 .app-view {
+  display: grid;
   min-height: 100vh;
   padding: clamp(16px, 3vw, 34px);
+  place-items: center;
 }
 
 .workspace-card {
   width: min(1240px, 100%);
-  margin: 0 auto;
+  margin: auto;
   padding: clamp(18px, 3vw, 30px);
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.76);
@@ -308,14 +341,27 @@ select.has-error {
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  align-items: stretch;
   gap: 24px;
   padding-top: 24px;
+}
+
+.admin-workspace {
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
 }
 
 .stack-form {
   align-content: start;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
+}
+
+.restaurant-create-panel {
+  height: 100%;
+  padding: 18px;
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  border-radius: 18px;
 }
 
 .stack-form:last-child {
@@ -329,6 +375,23 @@ select.has-error {
 
 .content-area {
   min-width: 0;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.orders-heading {
+  margin-top: 18px;
 }
 
 .toolbar {
@@ -351,6 +414,79 @@ select.has-error {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 18px;
+}
+
+.login-table-wrap {
+  margin-bottom: 16px;
+  background: #ffffff;
+}
+
+.restaurant-list {
+  margin-bottom: 16px;
+}
+
+#restaurantLoginBody {
+  display: grid;
+  gap: 10px;
+}
+
+.restaurant-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  transition: 180ms ease;
+}
+
+.restaurant-row:hover,
+.restaurant-row:focus {
+  border-color: rgba(249, 115, 22, 0.42);
+  box-shadow: 0 12px 28px rgba(249, 115, 22, 0.1);
+  outline: 0;
+}
+
+.restaurant-row.active {
+  background: linear-gradient(135deg, #ffffff, #fff7ed);
+  border-color: rgba(249, 115, 22, 0.48);
+}
+
+.restaurant-row-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.restaurant-row-main strong {
+  font-size: 1rem;
+}
+
+.credential-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.credential-group > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.restaurant-row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.restaurant-row-actions .secondary-button {
+  min-height: 38px;
+  padding: 0 12px;
 }
 
 table {
@@ -399,6 +535,29 @@ tr:last-child td {
 .status-paused {
   color: #4b5563;
   background: #f3f4f6;
+}
+
+.credential-text {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  color: var(--accent-dark);
+  background: var(--soft);
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 10px;
+  font-family: "Courier New", monospace;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .weekday-picker {
@@ -465,13 +624,88 @@ tr:last-child td {
 
 .empty-state {
   margin-top: 14px;
-  padding: 16px;
+  padding: 24px;
   color: var(--muted);
-  background: #ffffff;
-  border: 1px dashed var(--line);
-  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff, #fff7ed);
+  border: 1px dashed rgba(249, 115, 22, 0.36);
+  border-radius: 18px;
   text-align: center;
   font-weight: 800;
+}
+
+.empty-state strong,
+.empty-state span {
+  display: block;
+}
+
+.empty-state strong {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.empty-state span {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.empty-restaurant-state {
+  display: grid;
+  min-height: 100%;
+  margin-top: 0;
+  place-content: center;
+}
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 23, 23, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.confirm-card {
+  width: min(420px, 100%);
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  animation: confirmIn 220ms ease;
+}
+
+.confirm-card h2 {
+  margin-bottom: 10px;
+  font-size: 1.45rem;
+}
+
+.confirm-card p:last-of-type {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+@keyframes confirmIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (max-width: 860px) {
@@ -483,6 +717,19 @@ tr:last-child td {
 
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .restaurant-row {
+    grid-template-columns: 1fr;
+  }
+
+  .restaurant-row-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .restaurant-row-actions .secondary-button {
+    width: 100%;
   }
 
   .tab-button,

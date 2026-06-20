@@ -10,7 +10,12 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23f97316'/%3E%3Ctext x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='34' font-weight='700' fill='white'%3EW%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="booting">
+  <div class="boot-screen" id="bootScreen" aria-live="polite">
+    <span class="logo-mark">W</span>
+    <strong>Carregando painel...</strong>
+  </div>
+
   <main class="auth-view" id="authView">
     <section class="auth-panel" aria-label="Acesso ao Waiter">
       <div class="brand-line">
@@ -25,13 +30,14 @@
       </div>
 
       <div class="mode-switch" role="tablist" aria-label="Modo de acesso">
-        <button class="mode-button active" type="button" data-mode="login" aria-selected="true">Login</button>
-        <button class="mode-button" type="button" data-mode="signup" aria-selected="false">Criar conta</button>
+        <button class="mode-button active" type="button" data-mode="admin-login" aria-selected="true">Admin</button>
+        <button class="mode-button" type="button" data-mode="restaurant-login" aria-selected="false">Restaurante</button>
+        <button class="mode-button" type="button" data-mode="signup" aria-selected="false">Criar admin</button>
       </div>
 
       <form class="auth-form" id="authForm" novalidate>
         <div class="field-group">
-          <label for="nick">Nick</label>
+          <label for="nick" id="nickLabel">Nick</label>
           <input id="nick" name="nick" type="text" autocomplete="username" placeholder="Digite seu nick">
           <small class="field-error" data-error-for="nick"></small>
         </div>
@@ -45,12 +51,6 @@
           <small class="field-error" data-error-for="password"></small>
         </div>
 
-        <div class="field-group signup-only" id="restaurantSignupField">
-          <label for="restaurantNameSignup">Restaurante inicial</label>
-          <input id="restaurantNameSignup" name="restaurantNameSignup" type="text" autocomplete="organization" placeholder="Ex: Bistrô Central">
-          <small class="field-error" data-error-for="restaurantNameSignup"></small>
-        </div>
-
         <button class="primary-button" type="submit" id="authSubmit">Entrar</button>
       </form>
 
@@ -62,38 +62,59 @@
     <section class="workspace-card" id="adminDashboard" aria-label="Dashboard de admin">
       <header class="workspace-header">
         <div>
-          <p class="eyebrow">Dashboard de admin</p>
+          <p class="eyebrow">Painel</p>
           <h1 id="adminGreeting">Restaurantes</h1>
         </div>
         <div class="header-actions">
-          <button class="tab-button active" type="button" data-dashboard="admin">Admin</button>
           <button class="ghost-button" type="button" id="logoutButton">Sair</button>
         </div>
       </header>
 
-      <div class="workspace-grid">
-        <form class="stack-form" id="restaurantForm" novalidate>
-          <h2>Novo restaurante</h2>
+      <div class="workspace-grid admin-workspace">
+        <form class="stack-form restaurant-create-panel" id="restaurantForm" novalidate>
+          <h2>Cadastrar restaurante</h2>
           <div class="field-group">
             <label for="restaurantName">Nome</label>
             <input id="restaurantName" name="restaurantName" type="text" placeholder="Ex: Jardim 82">
             <small class="field-error" data-admin-error-for="restaurantName"></small>
           </div>
           <div class="field-group">
-            <label for="restaurantCategory">Categoria</label>
-            <input id="restaurantCategory" name="restaurantCategory" type="text" placeholder="Ex: Bistrô">
+            <label for="restaurantLogin">Login do restaurante</label>
+            <input id="restaurantLogin" name="restaurantLogin" type="text" autocomplete="username" placeholder="Ex: jardim82">
+            <small class="field-error" data-admin-error-for="restaurantLogin"></small>
+          </div>
+          <div class="field-group">
+            <label for="restaurantPassword">Senha do restaurante</label>
+            <input id="restaurantPassword" name="restaurantPassword" type="password" autocomplete="new-password" placeholder="Crie uma senha">
+            <small class="field-error" data-admin-error-for="restaurantPassword"></small>
           </div>
           <button class="primary-button compact" type="submit">Criar restaurante</button>
         </form>
 
         <div class="content-area">
-          <div class="toolbar">
-            <label for="restaurantSelect">Restaurante</label>
-            <select id="restaurantSelect"></select>
-            <button class="secondary-button" type="button" id="addOrderButton">Adicionar pedido demo</button>
+          <div class="section-heading" id="restaurantToolbar">
+            <h2>Restaurantes cadastrados</h2>
           </div>
 
-          <div class="table-wrap">
+          <div class="visually-hidden">
+            <label for="restaurantSelect">Restaurante selecionado</label>
+            <select id="restaurantSelect"></select>
+          </div>
+
+          <div class="restaurant-list" id="restaurantLoginWrap">
+            <div id="restaurantLoginBody"></div>
+          </div>
+
+          <div class="empty-state empty-restaurant-state hidden" id="emptyRestaurants">
+            <strong>Nenhum restaurante cadastrado</strong>
+            <span>Crie seu primeiro restaurante no formulario ao lado.</span>
+          </div>
+
+          <div class="section-heading orders-heading hidden" id="ordersHeader">
+            <h2 id="ordersTitle">Pedidos</h2>
+          </div>
+
+          <div class="table-wrap" id="ordersTableWrap">
             <table>
               <thead>
                 <tr>
@@ -118,8 +139,6 @@
           <h1 id="restaurantGreeting">Cardápio</h1>
         </div>
         <div class="header-actions">
-          <button class="tab-button" type="button" data-dashboard="admin">Admin</button>
-          <button class="tab-button active" type="button" data-dashboard="restaurant">Restaurante</button>
           <button class="ghost-button" type="button" id="restaurantLogoutButton">Sair</button>
         </div>
       </header>
@@ -212,6 +231,18 @@
       </div>
     </section>
   </main>
+
+  <div class="confirm-overlay hidden" id="confirmOverlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="confirm-card">
+      <p class="eyebrow">Confirmação</p>
+      <h2 id="confirmTitle">Apagar restaurante?</h2>
+      <p id="confirmMessage">Essa ação não pode ser desfeita.</p>
+      <div class="confirm-actions">
+        <button class="ghost-button" type="button" id="cancelDeleteButton">Cancelar</button>
+        <button class="primary-button danger-confirm" type="button" id="confirmDeleteButton">Apagar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="supabase-config.js"></script>
   <script src="script.js"></script>
