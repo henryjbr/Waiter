@@ -5,9 +5,11 @@ const supabaseUrl = supabaseSettings.url
   .replace(/\/rest\/v1$/, "")
   .replace(/\/auth\/v1$/, "");
 const sessionKey = "waiter.supabase.session";
+const restaurantSessionKey = "waiter.restaurant.session";
 
 const authView = document.querySelector("#authView");
 const appView = document.querySelector("#appView");
+const customerView = document.querySelector("#customerView");
 const bootScreen = document.querySelector("#bootScreen");
 const authForm = document.querySelector("#authForm");
 const authTitle = document.querySelector("#authTitle");
@@ -50,16 +52,38 @@ const itemCategory = document.querySelector("#itemCategory");
 const itemSubcategory = document.querySelector("#itemSubcategory");
 const weekdayTabs = document.querySelector("#weekdayTabs");
 const menuDayTitle = document.querySelector("#menuDayTitle");
-const addMenuDemoButton = document.querySelector("#addMenuDemoButton");
 const menuBody = document.querySelector("#menuBody");
 const emptyMenu = document.querySelector("#emptyMenu");
+const clientForm = document.querySelector("#clientForm");
+const clientListBody = document.querySelector("#clientListBody");
+const emptyClients = document.querySelector("#emptyClients");
+const refreshRestaurantOrdersButton = document.querySelector("#refreshRestaurantOrdersButton");
+const restaurantOrdersBody = document.querySelector("#restaurantOrdersBody");
+const emptyRestaurantOrders = document.querySelector("#emptyRestaurantOrders");
 
-let mode = "admin-login";
+const customerRestaurantName = document.querySelector("#customerRestaurantName");
+const customerMenuSubtitle = document.querySelector("#customerMenuSubtitle");
+const customerWeekdayTabs = document.querySelector("#customerWeekdayTabs");
+const customerMenuBody = document.querySelector("#customerMenuBody");
+const emptyCustomerMenu = document.querySelector("#emptyCustomerMenu");
+const cartItems = document.querySelector("#cartItems");
+const emptyCart = document.querySelector("#emptyCart");
+const orderForm = document.querySelector("#orderForm");
+const sendOrderButton = document.querySelector("#sendOrderButton");
+const orderAlert = document.querySelector("#orderAlert");
+
+let mode = "login";
 let currentUser = null;
 let currentRestaurantSession = null;
+let currentCustomerSession = null;
+let currentRestaurantOrders = [];
+let restaurantClients = [];
+let publicRestaurant = null;
+let customerCart = [];
 let state = null;
-let activeDay = "monday";
+let activeDay = getTodayKey();
 let restaurantPendingDeletionId = "";
+let clientPendingDeletionId = "";
 let session = readStoredSession();
 
 const weekdays = [
@@ -72,10 +96,9 @@ const weekdays = [
   ["sunday", "Domingo"]
 ];
 
-const money = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL"
-});
+function getTodayKey() {
+  return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date().getDay()];
+}
 
 function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
@@ -101,6 +124,14 @@ function readStoredSession() {
   }
 }
 
+function readStoredRestaurantSession() {
+  try {
+    return JSON.parse(localStorage.getItem(restaurantSessionKey));
+  } catch {
+    return null;
+  }
+}
+
 function storeSession(authData) {
   session = {
     access_token: authData.access_token,
@@ -115,6 +146,18 @@ function storeSession(authData) {
 function clearStoredSession() {
   session = null;
   localStorage.removeItem(sessionKey);
+}
+
+function storeRestaurantSession(credentials) {
+  localStorage.setItem(restaurantSessionKey, JSON.stringify({
+    login: credentials.login,
+    password: credentials.password,
+    savedAt: new Date().toISOString()
+  }));
+}
+
+function clearStoredRestaurantSession() {
+  localStorage.removeItem(restaurantSessionKey);
 }
 
 async function requestSupabase(path, options = {}) {
@@ -140,36 +183,26 @@ async function requestSupabase(path, options = {}) {
   const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    throw new Error(data?.msg || data?.message || data?.error_description || data?.error || "Erro ao conectar ao Supabase.");
+    const error = new Error(data?.msg || data?.message || data?.error_description || data?.error || "Erro ao conectar ao Supabase.");
+    error.status = response.status;
+    error.code = data?.code || data?.error_code || data?.error;
+    throw error;
   }
 
   return data;
 }
 
-async function upsertProfile(userId, nick) {
+async function upsertProfile(userId, nick, name = "") {
   await requestSupabase("/rest/v1/profiles?on_conflict=id", {
     method: "POST",
     headers: {
       Prefer: "resolution=merge-duplicates"
     },
-    body: JSON.stringify({ id: userId, nick })
+    body: JSON.stringify({ id: userId, nick, name })
   });
 }
 
 function createDefaultState(nick) {
-  const categories = [
-    {
-      id: createId("category"),
-      name: "Pratos",
-      subcategories: [{ id: createId("subcategory"), name: "Executivos" }]
-    },
-    {
-      id: createId("category"),
-      name: "Lanches",
-      subcategories: [{ id: createId("subcategory"), name: "Artesanais" }]
-    }
-  ];
-
   return {
     admin: {
       nick,
@@ -180,27 +213,8 @@ function createDefaultState(nick) {
     restaurant: {
       nick,
       name: "Cardápio",
-      categories,
-      items: [
-        {
-          id: createId("item"),
-          name: "Risoto de limão",
-          categoryId: categories[0].id,
-          subcategoryId: categories[0].subcategories[0].id,
-          price: 48,
-          status: "Ativo",
-          days: ["monday", "tuesday", "wednesday", "thursday", "friday"]
-        },
-        {
-          id: createId("item"),
-          name: "Burger da casa",
-          categoryId: categories[1].id,
-          subcategoryId: categories[1].subcategories[0].id,
-          price: 32.9,
-          status: "Ativo",
-          days: ["friday", "saturday", "sunday"]
-        }
-      ]
+      categories: [],
+      items: []
     }
   };
 }
@@ -209,13 +223,7 @@ function createRestaurantMenuState(name) {
   return {
     nick: name,
     name,
-    categories: [
-      {
-        id: createId("category"),
-        name: "Geral",
-        subcategories: [{ id: createId("subcategory"), name: "Principal" }]
-      }
-    ],
+    categories: [],
     items: []
   };
 }
@@ -223,21 +231,14 @@ function createRestaurantMenuState(name) {
 function setMode(nextMode) {
   mode = nextMode;
   const isSignup = mode === "signup";
-  const isRestaurant = mode === "restaurant-login";
 
   authForm.classList.toggle("signup", isSignup);
-  authTitle.textContent = isSignup
-    ? "Criar admin"
-    : isRestaurant
-      ? "Entrar como restaurante"
-      : "Entrar como admin";
+  authTitle.textContent = isSignup ? "Criar conta" : "Entrar no painel";
   authSubtitle.textContent = isSignup
-    ? "Crie seu acesso de administrador para cadastrar restaurantes."
-    : isRestaurant
-      ? "Use o login e a senha criados pelo admin para acessar o cardapio."
-      : "Use seu nick e senha para administrar restaurantes.";
-  nickLabel.textContent = isRestaurant ? "Login do restaurante" : "Nick";
-  authForm.elements.nick.placeholder = isRestaurant ? "Digite o login do restaurante" : "Digite seu nick";
+    ? "Crie sua conta de administrador para cadastrar restaurantes."
+    : "Use seu login e senha. O painel correto abre automaticamente.";
+  nickLabel.textContent = "Login";
+  authForm.elements.nick.placeholder = "Digite seu login";
   passwordInput.autocomplete = isSignup ? "new-password" : "current-password";
   updateAuthSubmitText();
 
@@ -250,12 +251,12 @@ function setMode(nextMode) {
 }
 
 function updateAuthSubmitText() {
-  authSubmit.textContent = mode === "signup" ? "Criar admin" : "Entrar";
+  authSubmit.textContent = mode === "signup" ? "Criar conta" : "Entrar";
 }
 
 function showFieldError(scope, fieldName, message) {
   const field = scope.elements[fieldName];
-  const error = document.querySelector(`[data-error-for="${fieldName}"], [data-admin-error-for="${fieldName}"], [data-category-error-for="${fieldName}"], [data-subcategory-error-for="${fieldName}"], [data-menu-error-for="${fieldName}"]`);
+  const error = document.querySelector(`[data-error-for="${fieldName}"], [data-admin-error-for="${fieldName}"], [data-category-error-for="${fieldName}"], [data-subcategory-error-for="${fieldName}"], [data-menu-error-for="${fieldName}"], [data-client-error-for="${fieldName}"], [data-order-error-for="${fieldName}"]`);
 
   if (field) field.classList.add("has-error");
   if (error) error.textContent = message;
@@ -273,17 +274,31 @@ function clearAuthErrors() {
   authAlert.textContent = isSupabaseReady ? "" : "Supabase não configurado. Preencha url e anonKey em supabase-config.js.";
 }
 
+function isInvalidSessionError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("refresh token") || message.includes("invalid refresh");
+}
+
+function isAlreadyRegisteredError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.status === 422 || message.includes("already registered") || message.includes("already exists");
+}
+
 function validateAuth() {
   clearAuthErrors();
   const data = new FormData(authForm);
+  const name = String(data.get("fullName") || "").trim();
   const nick = String(data.get("nick") || "").trim();
   const password = String(data.get("password") || "").trim();
   let valid = true;
 
+  if (mode === "signup" && name.length < 2) {
+    showFieldError(authForm, "fullName", "Informe seu nome.");
+    valid = false;
+  }
+
   if (nick.length < 3) {
-    showFieldError(authForm, "nick", mode === "restaurant-login"
-      ? "Informe o login do restaurante."
-      : "Informe um nick com pelo menos 3 caracteres.");
+    showFieldError(authForm, "nick", "Informe um login com pelo menos 3 caracteres.");
     valid = false;
   }
 
@@ -297,26 +312,46 @@ function validateAuth() {
 
 async function authenticate() {
   const data = new FormData(authForm);
+  const name = String(data.get("fullName") || "").trim();
   const nick = String(data.get("nick") || "").trim();
   const password = String(data.get("password") || "");
   const email = nickToEmail(nick);
 
   if (mode === "signup") {
-    const authData = await requestSupabase("/auth/v1/signup", {
+    let authData;
+
+    try {
+      authData = await requestSupabase("/auth/v1/signup", {
       method: "POST",
       auth: false,
       body: JSON.stringify({
         email,
         password,
-        data: { nick }
+        data: { nick, name }
       })
     });
+
+    } catch (signupError) {
+      if (!isAlreadyRegisteredError(signupError)) {
+        throw signupError;
+      }
+
+      try {
+        authData = await requestSupabase("/auth/v1/token?grant_type=password", {
+          method: "POST",
+          auth: false,
+          body: JSON.stringify({ email, password })
+        });
+      } catch {
+        throw new Error("Esse login já existe. Entre com a senha correta ou use outro login.");
+      }
+    }
 
     if (!authData.user) throw new Error("Cadastro criado. Confirme o usuário no Supabase para entrar.");
     if (!authData.access_token) throw new Error("Cadastro criado. Entre novamente para iniciar a sessão.");
 
     storeSession(authData);
-    await upsertProfile(authData.user.id, nick);
+    await upsertProfile(authData.user.id, nick, name);
     return authData.user;
   }
 
@@ -335,6 +370,10 @@ async function authenticateRestaurant() {
   const login = String(data.get("nick") || "").trim();
   const password = String(data.get("password") || "");
 
+  return loginRestaurantWithCredentials(login, password);
+}
+
+async function loginRestaurantWithCredentials(login, password) {
   const rows = await requestSupabase("/rest/v1/rpc/login_restaurant", {
     method: "POST",
     auth: false,
@@ -355,6 +394,7 @@ async function authenticateRestaurant() {
     password,
     name: restaurant.name
   };
+  currentRestaurantOrders = Array.isArray(restaurant.orders) ? restaurant.orders : [];
 
   state = {
     admin: {
@@ -370,7 +410,98 @@ async function authenticateRestaurant() {
   return restaurant;
 }
 
-async function upsertRestaurantRecord(restaurant, includeMenuState = true) {
+async function authenticateCustomer() {
+  const data = new FormData(authForm);
+  const login = String(data.get("nick") || "").trim();
+  const password = String(data.get("password") || "");
+
+  const rows = await requestSupabase("/rest/v1/rpc/login_customer", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({
+      p_login: login,
+      p_password: password
+    })
+  });
+
+  const customer = Array.isArray(rows) ? rows[0] : rows;
+  if (!customer?.customer_id || !customer?.restaurant_id) {
+    throw new Error("Login ou senha do cliente incorretos.");
+  }
+
+  currentCustomerSession = {
+    id: customer.customer_id,
+    name: customer.customer_name,
+    login: customer.customer_login,
+    restaurantId: customer.restaurant_id,
+    restaurantName: customer.restaurant_name
+  };
+
+  publicRestaurant = {
+    id: customer.restaurant_id,
+    name: customer.restaurant_name,
+    login: customer.restaurant_login,
+    menuState: customer.menu_state || createRestaurantMenuState(customer.restaurant_name)
+  };
+  customerCart = [];
+  activeDay = getTodayKey();
+  normalizePublicRestaurantState();
+  return customer;
+}
+
+async function loginAutomatically(nick) {
+  try {
+    currentRestaurantSession = null;
+    currentCustomerSession = null;
+    currentRestaurantOrders = [];
+    restaurantClients = [];
+    clearStoredRestaurantSession();
+    currentUser = await authenticate();
+    await loadState(nick);
+    authView.classList.add("hidden");
+    appView.classList.remove("hidden");
+    showDashboard("admin");
+    renderApp();
+    return;
+  } catch (adminError) {
+    if (String(adminError?.message || "").includes("Supabase")) {
+      throw adminError;
+    }
+
+    clearStoredSession();
+    currentUser = null;
+  }
+
+  try {
+    await authenticateRestaurant();
+    currentCustomerSession = null;
+    storeRestaurantSession(currentRestaurantSession);
+    await refreshRestaurantClients();
+    authView.classList.add("hidden");
+    appView.classList.remove("hidden");
+    customerView.classList.add("hidden");
+    showDashboard("restaurant");
+    renderRestaurant();
+    return;
+  } catch {
+    currentRestaurantSession = null;
+    currentRestaurantOrders = [];
+    restaurantClients = [];
+  }
+
+  try {
+    await authenticateCustomer();
+    clearStoredRestaurantSession();
+    authView.classList.add("hidden");
+    appView.classList.add("hidden");
+    customerView.classList.remove("hidden");
+    renderCustomerView();
+  } catch {
+    throw new Error("Login ou senha incorretos.");
+  }
+}
+
+async function upsertRestaurantRecord(restaurant, includeMenuState = true, includeOrders = true) {
   if (!currentUser?.id) return;
 
   const payload = {
@@ -379,9 +510,12 @@ async function upsertRestaurantRecord(restaurant, includeMenuState = true) {
     name: restaurant.name,
     login: restaurant.login,
     password: restaurant.password,
-    orders: restaurant.orders || [],
     updated_at: new Date().toISOString()
   };
+
+  if (includeOrders) {
+    payload.orders = restaurant.orders || [];
+  }
 
   if (includeMenuState) {
     payload.menu_state = restaurant.menuState || createRestaurantMenuState(restaurant.name);
@@ -402,10 +536,40 @@ async function syncRestaurantRecords() {
   });
 
   try {
-    await Promise.all(restaurants.map((restaurant) => upsertRestaurantRecord(restaurant, false)));
+    await Promise.all(restaurants.map((restaurant) => upsertRestaurantRecord(restaurant, false, false)));
   } catch (error) {
     console.warn("Nao foi possivel sincronizar restaurantes no Supabase.", error);
   }
+}
+
+async function loadRestaurantRecords() {
+  const rows = await requestSupabase(`/rest/v1/restaurants?owner_user_id=eq.${currentUser.id}&select=id,name,login,password,orders,menu_state&order=created_at.desc`);
+  const known = new Map(state.admin.restaurants.map((restaurant) => [restaurant.id, restaurant]));
+
+  rows.forEach((row) => {
+    const existing = known.get(row.id);
+    const record = existing || {
+      id: row.id,
+      name: row.name,
+      login: row.login,
+      password: row.password,
+      orders: []
+    };
+
+    record.name = row.name || record.name;
+    record.login = row.login || record.login;
+    record.password = row.password || record.password;
+    record.orders = Array.isArray(row.orders) ? row.orders : [];
+    record.menuState = row.menu_state || record.menuState || createRestaurantMenuState(record.name);
+
+    if (!existing) {
+      state.admin.restaurants.push(record);
+    }
+  });
+
+  state.admin.restaurants.forEach((restaurant) => {
+    restaurant.orders = Array.isArray(restaurant.orders) ? restaurant.orders : [];
+  });
 }
 
 async function deleteRestaurantRecord(restaurantId) {
@@ -431,6 +595,51 @@ async function saveRestaurantWorkspace() {
   });
 }
 
+async function refreshRestaurantOrders() {
+  if (!currentRestaurantSession) return;
+
+  const rows = await requestSupabase("/rest/v1/rpc/login_restaurant", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({
+      p_login: currentRestaurantSession.login,
+      p_password: currentRestaurantSession.password
+    })
+  });
+  const restaurant = Array.isArray(rows) ? rows[0] : rows;
+
+  currentRestaurantOrders = Array.isArray(restaurant?.orders) ? restaurant.orders : [];
+  renderRestaurantOrders();
+}
+
+async function refreshRestaurantClients() {
+  if (!currentRestaurantSession) return;
+
+  const rows = await requestSupabase("/rest/v1/rpc/list_restaurant_customers", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({
+      p_restaurant_id: currentRestaurantSession.id,
+      p_password: currentRestaurantSession.password
+    })
+  });
+
+  restaurantClients = Array.isArray(rows) ? rows : [];
+  renderClients();
+}
+
+async function deleteRestaurantCustomerRecord(customerId) {
+  await requestSupabase("/rest/v1/rpc/delete_restaurant_customer", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({
+      p_restaurant_id: currentRestaurantSession.id,
+      p_password: currentRestaurantSession.password,
+      p_customer_id: customerId
+    })
+  });
+}
+
 async function loadState(nick) {
   const rows = await requestSupabase(`/rest/v1/app_states?user_id=eq.${currentUser.id}&select=admin_state,restaurant_state`);
   const data = rows[0];
@@ -445,12 +654,14 @@ async function loadState(nick) {
       await saveState();
     }
     await syncRestaurantRecords();
+    await loadRestaurantRecords();
     return;
   }
 
   state = createDefaultState(nick);
   await saveState();
   await syncRestaurantRecords();
+  await loadRestaurantRecords();
 }
 
 function normalizeState(nick) {
@@ -462,20 +673,37 @@ function normalizeState(nick) {
 }
 
 function normalizeRestaurantState() {
-  state.restaurant.categories = Array.isArray(state.restaurant.categories) && state.restaurant.categories.length
-    ? state.restaurant.categories
-    : [{ id: createId("category"), name: "Geral", subcategories: [{ id: createId("subcategory"), name: "Principal" }] }];
+  state.restaurant.categories = Array.isArray(state.restaurant.categories) ? state.restaurant.categories : [];
   state.restaurant.items = Array.isArray(state.restaurant.items) ? state.restaurant.items : [];
 
+  removeGeneratedPlaceholderCategories(state.restaurant);
+
   state.restaurant.categories.forEach((category) => {
-    category.subcategories = Array.isArray(category.subcategories) && category.subcategories.length
-      ? category.subcategories
-      : [{ id: createId("subcategory"), name: "Principal" }];
+    category.subcategories = Array.isArray(category.subcategories) ? category.subcategories : [];
   });
 
   state.restaurant.items.forEach((item) => {
     item.days = Array.isArray(item.days) && item.days.length ? item.days : weekdays.map(([id]) => id);
     item.status = item.status || "Ativo";
+  });
+}
+
+function removeGeneratedPlaceholderCategories(menuState) {
+  const itemCategoryIds = new Set((menuState.items || []).map((item) => item.categoryId).filter(Boolean));
+
+  menuState.categories = (menuState.categories || []).filter((category) => {
+    const subcategories = Array.isArray(category.subcategories) ? category.subcategories : [];
+    const isGeneratedCategory = String(category.name || "").trim().toLowerCase() === "geral";
+    const onlyGeneratedSubcategory = subcategories.length <= 1
+      && String(subcategories[0]?.name || "").trim().toLowerCase() === "principal";
+
+    return !(isGeneratedCategory && onlyGeneratedSubcategory && !itemCategoryIds.has(category.id));
+  });
+
+  menuState.categories.forEach((category) => {
+    category.subcategories = (category.subcategories || []).filter((subcategory) => {
+      return String(subcategory.name || "").trim().toLowerCase() !== "principal";
+    });
   });
 }
 
@@ -518,10 +746,45 @@ async function getSessionNick(user) {
 }
 
 async function restoreSession() {
+  if (isPublicOrderRoute()) {
+    try {
+      await loadPublicCustomerMenu();
+    } catch (error) {
+      authView.classList.add("hidden");
+      appView.classList.add("hidden");
+      customerView.classList.remove("hidden");
+      customerRestaurantName.textContent = "Não foi possível abrir o cardápio";
+      customerMenuSubtitle.textContent = error.message || "Tente novamente em instantes.";
+    } finally {
+      finishBoot();
+    }
+    return;
+  }
+
   if (!isSupabaseReady) {
     authAlert.textContent = "Supabase não configurado. Preencha url e anonKey em supabase-config.js.";
     finishBoot();
     return;
+  }
+
+  const storedRestaurantSession = readStoredRestaurantSession();
+  if (storedRestaurantSession?.login && storedRestaurantSession?.password) {
+    try {
+      await loginRestaurantWithCredentials(storedRestaurantSession.login, storedRestaurantSession.password);
+      await refreshRestaurantClients();
+      authView.classList.add("hidden");
+      appView.classList.remove("hidden");
+      customerView.classList.add("hidden");
+      showDashboard("restaurant");
+      renderRestaurant();
+      finishBoot();
+      return;
+    } catch {
+      currentRestaurantSession = null;
+      currentRestaurantOrders = [];
+      restaurantClients = [];
+      clearStoredRestaurantSession();
+    }
   }
 
   if (!session?.access_token || !session?.user) {
@@ -539,6 +802,16 @@ async function restoreSession() {
     showDashboard("admin");
     renderApp();
   } catch (restoreError) {
+    currentUser = null;
+    currentRestaurantSession = null;
+    currentCustomerSession = null;
+    state = null;
+    clearStoredSession();
+    setMode("login");
+    authForm.reset();
+    if (isInvalidSessionError(restoreError)) {
+      restoreError.message = "Sua sessão expirou. Entre novamente.";
+    }
     authAlert.textContent = restoreError.message || "Não foi possível restaurar sua sessão.";
     authView.classList.remove("hidden");
     appView.classList.add("hidden");
@@ -579,6 +852,285 @@ function getCategory(categoryId) {
 
 function getSubcategory(categoryId, subcategoryId) {
   return getCategory(categoryId)?.subcategories.find((subcategory) => subcategory.id === subcategoryId);
+}
+
+function isPublicOrderRoute() {
+  return Boolean(getPublicRestaurantLogin());
+}
+
+function getPublicRestaurantLogin() {
+  const params = new URLSearchParams(window.location.search);
+  return (params.get("loja") || params.get("restaurant") || "").trim();
+}
+
+function getRestaurantMenuUrl(login) {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("loja", login);
+  return url.toString();
+}
+
+function getPublicMenuState() {
+  return publicRestaurant?.menuState || createRestaurantMenuState(publicRestaurant?.name || "Restaurante");
+}
+
+function getPublicCategory(categoryId) {
+  return getPublicMenuState().categories.find((category) => category.id === categoryId);
+}
+
+function getPublicSubcategory(categoryId, subcategoryId) {
+  return getPublicCategory(categoryId)?.subcategories.find((subcategory) => subcategory.id === subcategoryId);
+}
+
+async function loadPublicCustomerMenu() {
+  currentCustomerSession = null;
+  authView.classList.add("hidden");
+  appView.classList.add("hidden");
+  customerView.classList.remove("hidden");
+
+  if (!isSupabaseReady) {
+    customerMenuSubtitle.textContent = "Supabase não configurado.";
+    return;
+  }
+
+  const login = getPublicRestaurantLogin();
+  const rows = await requestSupabase("/rest/v1/rpc/get_public_restaurant", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ p_login: login })
+  });
+  const restaurant = Array.isArray(rows) ? rows[0] : rows;
+
+  if (!restaurant?.id) {
+    customerRestaurantName.textContent = "Restaurante não encontrado";
+    customerMenuSubtitle.textContent = "Confira o link do cardápio.";
+    customerMenuBody.innerHTML = "";
+    emptyCustomerMenu.classList.remove("hidden");
+    return;
+  }
+
+  publicRestaurant = {
+    id: restaurant.id,
+    name: restaurant.name,
+    login: restaurant.login,
+    menuState: restaurant.menu_state || createRestaurantMenuState(restaurant.name)
+  };
+  normalizePublicRestaurantState();
+  renderCustomerView();
+}
+
+function normalizePublicRestaurantState() {
+  const menuState = getPublicMenuState();
+  menuState.categories = Array.isArray(menuState.categories) ? menuState.categories : [];
+  menuState.items = Array.isArray(menuState.items) ? menuState.items : [];
+  removeGeneratedPlaceholderCategories(menuState);
+  menuState.categories.forEach((category) => {
+    category.subcategories = Array.isArray(category.subcategories) ? category.subcategories : [];
+  });
+  menuState.items.forEach((item) => {
+    item.days = Array.isArray(item.days) && item.days.length ? item.days : weekdays.map(([id]) => id);
+    item.status = item.status || "Ativo";
+  });
+}
+
+function renderCustomerView() {
+  const dayLabel = weekdays.find(([id]) => id === activeDay)?.[1] || "dia";
+  const isLoggedCustomer = Boolean(currentCustomerSession);
+
+  customerRestaurantName.textContent = publicRestaurant.name;
+  customerMenuSubtitle.textContent = isLoggedCustomer
+    ? `Olá, ${currentCustomerSession.name}. Cardápio de hoje.`
+    : `Cardápio de ${dayLabel.toLowerCase()}`;
+  customerWeekdayTabs.classList.toggle("hidden", isLoggedCustomer);
+
+  if (isLoggedCustomer && orderForm.elements.customerName) {
+    orderForm.elements.customerName.value = currentCustomerSession.name || "";
+  }
+
+  renderCustomerWeekdayTabs();
+  renderCustomerMenu();
+  renderCart();
+}
+
+function renderCustomerWeekdayTabs() {
+  customerWeekdayTabs.innerHTML = "";
+
+  weekdays.forEach(([id, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "day-button";
+    button.classList.toggle("active", id === activeDay);
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      activeDay = id;
+      renderCustomerView();
+    });
+    customerWeekdayTabs.appendChild(button);
+  });
+}
+
+function renderCustomerMenu() {
+  const items = getPublicMenuState().items.filter((item) => {
+    return item.status === "Ativo" && item.days.includes(activeDay);
+  });
+
+  customerMenuBody.innerHTML = "";
+  emptyCustomerMenu.classList.toggle("hidden", items.length > 0);
+
+  items.forEach((item) => {
+    const category = getPublicCategory(item.categoryId);
+    const subcategory = getPublicSubcategory(item.categoryId, item.subcategoryId);
+    const row = document.createElement("article");
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    const meta = document.createElement("p");
+    const addButton = document.createElement("button");
+
+    row.className = "customer-item";
+    info.className = "customer-item-info";
+    title.textContent = item.name;
+    meta.textContent = [category?.name, subcategory?.name]
+      .filter(Boolean)
+      .join(" • ");
+
+    addButton.className = "secondary-button";
+    addButton.type = "button";
+    addButton.textContent = "Adicionar";
+    addButton.addEventListener("click", () => addToCart(item));
+
+    info.append(title, meta);
+    row.append(info, addButton);
+    customerMenuBody.appendChild(row);
+  });
+}
+
+function addToCart(item) {
+  const existing = customerCart.find((entry) => entry.id === item.id);
+  if (existing) {
+    existing.quantity += 1;
+  } else {
+    customerCart.push({
+      id: item.id,
+      name: item.name,
+      quantity: 1
+    });
+  }
+
+  orderAlert.textContent = "";
+  renderCart();
+}
+
+function changeCartQuantity(itemId, delta) {
+  const item = customerCart.find((entry) => entry.id === itemId);
+  if (!item) return;
+
+  item.quantity += delta;
+  if (item.quantity <= 0) {
+    customerCart = customerCart.filter((entry) => entry.id !== itemId);
+  }
+
+  renderCart();
+}
+
+function renderCart() {
+  cartItems.innerHTML = "";
+  emptyCart.classList.toggle("hidden", customerCart.length > 0);
+  sendOrderButton.disabled = customerCart.length === 0;
+
+  customerCart.forEach((item) => {
+    const row = document.createElement("div");
+    const main = document.createElement("div");
+    const title = document.createElement("strong");
+    const controls = document.createElement("div");
+    const removeButton = document.createElement("button");
+    const quantity = document.createElement("strong");
+    const addButton = document.createElement("button");
+
+    row.className = "cart-row";
+    main.className = "cart-row-main";
+    title.textContent = item.name;
+
+    controls.className = "cart-controls";
+    removeButton.className = "secondary-button";
+    removeButton.type = "button";
+    removeButton.textContent = "-";
+    removeButton.addEventListener("click", () => changeCartQuantity(item.id, -1));
+
+    quantity.textContent = String(item.quantity);
+
+    addButton.className = "secondary-button";
+    addButton.type = "button";
+    addButton.textContent = "+";
+    addButton.addEventListener("click", () => changeCartQuantity(item.id, 1));
+
+    main.append(title);
+    controls.append(removeButton, quantity, addButton);
+    row.append(main, controls);
+    cartItems.appendChild(row);
+  });
+}
+
+async function submitCustomerOrder(event) {
+  event.preventDefault();
+  clearFormErrors(orderForm);
+  orderAlert.textContent = "";
+
+  if (!customerCart.length) {
+    orderAlert.textContent = "Adicione pelo menos um item.";
+    return;
+  }
+
+  const data = new FormData(orderForm);
+  const customerName = String(data.get("customerName") || "").trim();
+
+  if (customerName.length < 2) {
+    showFieldError(orderForm, "customerName", "Informe seu nome.");
+    return;
+  }
+
+  const now = new Date();
+  const order = {
+    id: now.getTime().toString().slice(-7),
+    status: "Novo",
+    customerId: currentCustomerSession?.id || "",
+    customerLogin: currentCustomerSession?.login || "",
+    customerName,
+    customerContact: String(data.get("customerContact") || "").trim(),
+    tableLabel: String(data.get("tableLabel") || "").trim(),
+    notes: String(data.get("orderNotes") || "").trim(),
+    items: customerCart.map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity
+    })),
+    time: now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+    createdAt: now.toISOString()
+  };
+
+  sendOrderButton.disabled = true;
+  sendOrderButton.textContent = "Enviando...";
+
+  try {
+    await requestSupabase("/rest/v1/rpc/submit_restaurant_order", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({
+        p_restaurant_id: publicRestaurant.id,
+        p_order: order
+      })
+    });
+
+    customerCart = [];
+    orderForm.reset();
+    orderAlert.textContent = `Pedido #${order.id} enviado.`;
+    renderCart();
+  } catch (error) {
+    orderAlert.textContent = error.message || "Não foi possível enviar o pedido.";
+  } finally {
+    sendOrderButton.disabled = customerCart.length === 0;
+    sendOrderButton.textContent = "Enviar pedido";
+  }
 }
 
 function renderApp() {
@@ -624,13 +1176,115 @@ function renderAdmin() {
 
   orders.forEach((order) => {
     const row = document.createElement("tr");
-    row.append(
+    const cells = [
       tableCell(`#${order.id}`),
-      tableCell(order.items),
+      tableCell(formatOrderItems(order)),
       tableCell(order.status, true),
-      tableCell(order.time)
-    );
+      tableCell(formatOrderTime(order))
+    ];
+
+    ["Pedido", "Itens", "Status", "Hora"].forEach((label, index) => {
+      cells[index].dataset.label = label;
+    });
+
+    row.append(...cells);
     ordersBody.appendChild(row);
+  });
+}
+
+function formatOrderItems(order) {
+  if (Array.isArray(order.items)) {
+    return order.items.map((item) => {
+      return `${item.quantity || 1}x ${item.name}`;
+    }).join(", ");
+  }
+
+  return order.items || order.itemSummary || "Itens do pedido";
+}
+
+function formatOrderTime(order) {
+  if (order.time) return order.time;
+  if (!order.createdAt) return "";
+
+  return new Date(order.createdAt).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function renderRestaurantOrders() {
+  if (!restaurantOrdersBody || !emptyRestaurantOrders) return;
+
+  restaurantOrdersBody.innerHTML = "";
+  emptyRestaurantOrders.classList.toggle("hidden", currentRestaurantOrders.length > 0);
+
+  currentRestaurantOrders.slice().reverse().forEach((order) => {
+    const card = document.createElement("article");
+    const header = document.createElement("div");
+    const title = document.createElement("strong");
+    const status = document.createElement("span");
+    const main = document.createElement("div");
+    const items = document.createElement("p");
+    const customer = document.createElement("p");
+
+    card.className = "order-card";
+    header.className = "order-card-header";
+    title.textContent = `#${order.id || "Pedido"}`;
+    status.className = `status-chip ${order.status === "Novo" || order.status === "Ativo" || order.status === "Preparando" ? "status-active" : "status-paused"}`;
+    status.textContent = order.status || "Novo";
+
+    main.className = "order-card-main";
+    items.textContent = formatOrderItems(order);
+    customer.textContent = [order.customerName, order.tableLabel, order.customerContact, formatOrderTime(order)]
+      .filter(Boolean)
+      .join(" • ");
+    header.append(title, status);
+    main.append(items, customer);
+    if (order.notes) {
+      const notes = document.createElement("p");
+      notes.textContent = order.notes;
+      main.appendChild(notes);
+    }
+    card.append(header, main);
+    restaurantOrdersBody.appendChild(card);
+  });
+}
+
+function renderClients() {
+  if (!clientListBody || !emptyClients) return;
+
+  clientListBody.innerHTML = "";
+  emptyClients.classList.toggle("hidden", restaurantClients.length > 0);
+  clientListBody.classList.toggle("hidden", restaurantClients.length === 0);
+
+  restaurantClients.forEach((client) => {
+    const row = document.createElement("div");
+    const main = document.createElement("div");
+    const name = document.createElement("strong");
+    const credentials = document.createElement("div");
+    const login = document.createElement("span");
+    const password = document.createElement("span");
+    const actions = document.createElement("div");
+    const deleteButton = document.createElement("button");
+
+    row.className = "client-row";
+    main.className = "client-row-main";
+    name.textContent = client.name || "Cliente";
+    credentials.className = "credential-group";
+    login.append("Login ", credentialText(client.login || ""));
+    password.append("Senha ", credentialText(client.password || ""));
+    credentials.append(login, password);
+
+    actions.className = "client-row-actions";
+    deleteButton.className = "secondary-button danger-button";
+    deleteButton.type = "button";
+    deleteButton.textContent = "Apagar";
+    deleteButton.addEventListener("click", () => requestDeleteClient(client.id));
+
+    main.append(name, credentials);
+    actions.appendChild(deleteButton);
+    row.append(main, actions);
+    clientListBody.appendChild(row);
   });
 }
 
@@ -642,6 +1296,8 @@ function restaurantAccessRow(restaurant, isSelected) {
   const login = document.createElement("span");
   const password = document.createElement("span");
   const actions = document.createElement("div");
+  const menuLink = document.createElement("a");
+  const copyLinkButton = document.createElement("button");
   const selectButton = document.createElement("button");
   const deleteButton = document.createElement("button");
 
@@ -658,6 +1314,23 @@ function restaurantAccessRow(restaurant, isSelected) {
   credentials.append(login, password);
 
   actions.className = "restaurant-row-actions";
+  menuLink.className = "secondary-button link-button";
+  menuLink.href = getRestaurantMenuUrl(restaurant.login || "");
+  menuLink.target = "_blank";
+  menuLink.rel = "noreferrer";
+  menuLink.textContent = "Cardápio";
+
+  copyLinkButton.className = "secondary-button";
+  copyLinkButton.type = "button";
+  copyLinkButton.textContent = "Copiar link";
+  copyLinkButton.addEventListener("click", async () => {
+    await copyRestaurantLink(restaurant.login || "");
+    copyLinkButton.textContent = "Copiado";
+    window.setTimeout(() => {
+      copyLinkButton.textContent = "Copiar link";
+    }, 1600);
+  });
+
   selectButton.className = "secondary-button";
   selectButton.type = "button";
   selectButton.textContent = isSelected ? "Selecionado" : "Selecionar";
@@ -670,7 +1343,7 @@ function restaurantAccessRow(restaurant, isSelected) {
   deleteButton.addEventListener("click", () => requestDeleteRestaurant(restaurant.id));
 
   main.append(name, credentials);
-  actions.append(selectButton, deleteButton);
+  actions.append(menuLink, copyLinkButton, selectButton, deleteButton);
   row.append(main, actions);
 
   row.addEventListener("click", (event) => {
@@ -688,6 +1361,21 @@ function restaurantAccessRow(restaurant, isSelected) {
   return row;
 }
 
+async function copyRestaurantLink(login) {
+  const link = getRestaurantMenuUrl(login);
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(link);
+      return;
+    } catch {
+      // Falls back to the prompt below when clipboard permission is unavailable.
+    }
+  }
+
+  window.prompt("Link do cardápio", link);
+}
+
 function credentialText(value) {
   const text = document.createElement("span");
   text.className = "credential-text";
@@ -703,6 +1391,7 @@ async function selectRestaurant(restaurantId) {
 
 function renderRestaurant() {
   restaurantGreeting.textContent = state.restaurant.name;
+  renderClients();
   renderCategorySelects();
   renderWeekdayTabs();
   renderMenu();
@@ -714,6 +1403,13 @@ function renderCategorySelects() {
 
   itemCategory.innerHTML = "";
   subcategoryCategory.innerHTML = "";
+
+  if (!state.restaurant.categories.length) {
+    itemCategory.appendChild(option("", "Crie uma categoria"));
+    subcategoryCategory.appendChild(option("", "Crie uma categoria"));
+    renderSubcategorySelect();
+    return;
+  }
 
   state.restaurant.categories.forEach((category) => {
     itemCategory.appendChild(option(category.id, category.name));
@@ -736,7 +1432,12 @@ function renderSubcategorySelect() {
   const previous = itemSubcategory.value;
   itemSubcategory.innerHTML = "";
 
-  if (!category) return;
+  if (!category) {
+    itemSubcategory.appendChild(option("", "Sem subcategoria"));
+    return;
+  }
+
+  itemSubcategory.appendChild(option("", "Sem subcategoria"));
 
   category.subcategories.forEach((subcategory) => {
     itemSubcategory.appendChild(option(subcategory.id, subcategory.name));
@@ -767,17 +1468,38 @@ function renderWeekdayTabs() {
 function renderMenu() {
   const dayLabel = weekdays.find(([id]) => id === activeDay)?.[1] || "dia";
   const items = state.restaurant.items.filter((item) => item.days.includes(activeDay));
+  const menuTableWrap = menuBody.closest(".table-wrap");
   menuDayTitle.textContent = `Cardápio de ${dayLabel.toLowerCase()}`;
   menuBody.innerHTML = "";
   emptyMenu.classList.toggle("hidden", items.length > 0);
+  if (menuTableWrap) {
+    menuTableWrap.classList.toggle("hidden", items.length === 0);
+  }
 
   items.forEach((item) => {
     const category = getCategory(item.categoryId);
     const subcategory = getSubcategory(item.categoryId, item.subcategoryId);
     const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    const card = document.createElement("div");
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    const meta = document.createElement("div");
     const actions = document.createElement("div");
     const toggle = document.createElement("button");
     const remove = document.createElement("button");
+
+    row.className = "menu-card-row";
+    cell.colSpan = 5;
+    card.className = "menu-card";
+    info.className = "menu-card-info";
+    title.textContent = item.name;
+    meta.className = "menu-card-meta";
+    meta.append(
+      menuMeta(category?.name || "Sem categoria"),
+      menuMeta(subcategory?.name || "Sem subcategoria"),
+      menuMeta(item.status)
+    );
 
     actions.className = "item-actions";
     toggle.className = "action-button";
@@ -791,17 +1513,18 @@ function renderMenu() {
     remove.addEventListener("click", () => removeItem(item.id));
 
     actions.append(toggle, remove);
-
-    row.append(
-      tableCell(item.name),
-      tableCell(category?.name || "Geral"),
-      tableCell(subcategory?.name || "Principal"),
-      tableCell(money.format(item.price || 0)),
-      tableCell(item.status, true),
-      tableCell(actions)
-    );
+    info.append(title, meta);
+    card.append(info, actions);
+    cell.appendChild(card);
+    row.appendChild(cell);
     menuBody.appendChild(row);
   });
+}
+
+function menuMeta(text) {
+  const item = document.createElement("span");
+  item.textContent = text;
+  return item;
 }
 
 function option(value, text) {
@@ -829,7 +1552,7 @@ function tableCell(content, status = false, codeStyle = false) {
 
   if (status) {
     const chip = document.createElement("span");
-    chip.className = `status-chip ${content === "Ativo" || content === "Preparando" ? "status-active" : "status-paused"}`;
+    chip.className = `status-chip ${content === "Ativo" || content === "Novo" || content === "Preparando" ? "status-active" : "status-paused"}`;
     chip.textContent = content;
     cell.appendChild(chip);
     return cell;
@@ -895,18 +1618,36 @@ function requestDeleteRestaurant(restaurantId) {
   const selected = state.admin.restaurants.find((restaurant) => restaurant.id === restaurantId);
   if (!selected) return;
 
+  clientPendingDeletionId = "";
   restaurantPendingDeletionId = selected.id;
   confirmMessage.textContent = `Você está prestes a apagar "${selected.name}" e todos os pedidos dele.`;
   confirmOverlay.classList.remove("hidden");
   confirmDeleteButton.focus();
 }
 
+function requestDeleteClient(clientId) {
+  const selected = restaurantClients.find((client) => client.id === clientId);
+  if (!selected) return;
+
+  restaurantPendingDeletionId = "";
+  clientPendingDeletionId = selected.id;
+  confirmMessage.textContent = `Você está prestes a apagar o cliente "${selected.name || selected.login}".`;
+  confirmOverlay.classList.remove("hidden");
+  confirmDeleteButton.focus();
+}
+
 function closeDeleteConfirmation() {
   restaurantPendingDeletionId = "";
+  clientPendingDeletionId = "";
   confirmOverlay.classList.add("hidden");
 }
 
 async function confirmDeleteRestaurant() {
+  if (clientPendingDeletionId) {
+    await confirmDeleteClient();
+    return;
+  }
+
   if (!restaurantPendingDeletionId) return;
   const deletedRestaurantId = restaurantPendingDeletionId;
 
@@ -927,6 +1668,75 @@ async function confirmDeleteRestaurant() {
   renderAdmin();
 }
 
+async function confirmDeleteClient() {
+  if (!clientPendingDeletionId) return;
+  const deletedClientId = clientPendingDeletionId;
+
+  try {
+    await deleteRestaurantCustomerRecord(deletedClientId);
+  } catch (error) {
+    confirmMessage.textContent = error.message || "Não foi possível apagar o cliente.";
+    return;
+  }
+
+  restaurantClients = restaurantClients.filter((client) => client.id !== deletedClientId);
+  closeDeleteConfirmation();
+  renderClients();
+}
+
+async function createClient(event) {
+  event.preventDefault();
+  clearFormErrors(clientForm);
+
+  const data = new FormData(clientForm);
+  const name = String(data.get("clientName") || "").trim();
+  const login = String(data.get("clientLogin") || "").trim();
+  const password = String(data.get("clientPassword") || "").trim();
+
+  if (name.length < 2) {
+    showFieldError(clientForm, "clientName", "Informe o nome do cliente.");
+    return;
+  }
+
+  if (login.length < 3) {
+    showFieldError(clientForm, "clientLogin", "Informe um login com pelo menos 3 caracteres.");
+    return;
+  }
+
+  if (!password) {
+    showFieldError(clientForm, "clientPassword", "Informe a senha do cliente.");
+    return;
+  }
+
+  try {
+    const rows = await requestSupabase("/rest/v1/rpc/create_restaurant_customer", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({
+        p_restaurant_id: currentRestaurantSession.id,
+        p_restaurant_password: currentRestaurantSession.password,
+        p_name: name,
+        p_login: login,
+        p_password: password
+      })
+    });
+
+    const customer = Array.isArray(rows) ? rows[0] : rows;
+    restaurantClients.unshift(customer || { name, login, password });
+    clientForm.reset();
+    renderClients();
+  } catch (error) {
+    const message = String(error?.message || "");
+    showFieldError(
+      clientForm,
+      "clientLogin",
+      message.toLowerCase().includes("duplicate") || message.toLowerCase().includes("unique")
+        ? "Esse login já está em uso."
+        : message || "Não foi possível criar o cliente."
+    );
+  }
+}
+
 async function createCategory(event) {
   event.preventDefault();
   clearFormErrors(categoryForm);
@@ -940,7 +1750,7 @@ async function createCategory(event) {
   state.restaurant.categories.push({
     id: createId("category"),
     name,
-    subcategories: [{ id: createId("subcategory"), name: "Principal" }]
+    subcategories: []
   });
   categoryForm.reset();
   await saveRestaurantWorkspace();
@@ -979,7 +1789,6 @@ async function createMenuItem(event) {
   const name = String(data.get("itemName") || "").trim();
   const categoryId = String(data.get("itemCategory") || "");
   const subcategoryId = String(data.get("itemSubcategory") || "");
-  const price = Number(data.get("itemPrice")) || 0;
   const days = data.getAll("itemDays");
 
   if (name.length < 2) {
@@ -997,26 +1806,12 @@ async function createMenuItem(event) {
     name,
     categoryId,
     subcategoryId,
-    price,
     status: "Ativo",
     days: days.length ? days : [activeDay]
   });
 
   menuForm.reset();
   resetDayChecks();
-  await saveRestaurantWorkspace();
-  renderRestaurant();
-}
-
-async function addDemoMenu() {
-  const category = state.restaurant.categories[0];
-  const subcategory = category.subcategories[0];
-
-  state.restaurant.items.unshift(
-    { id: createId("item"), name: "Suco natural", categoryId: category.id, subcategoryId: subcategory.id, price: 12, status: "Ativo", days: ["monday", "tuesday", "wednesday"] },
-    { id: createId("item"), name: "Prato executivo", categoryId: category.id, subcategoryId: subcategory.id, price: 38, status: "Ativo", days: ["thursday", "friday"] }
-  );
-
   await saveRestaurantWorkspace();
   renderRestaurant();
 }
@@ -1037,7 +1832,7 @@ async function removeItem(itemId) {
 
 function resetDayChecks() {
   menuForm.querySelectorAll('input[name="itemDays"]').forEach((input) => {
-    input.checked = ["monday", "tuesday", "wednesday", "thursday", "friday"].includes(input.value);
+    input.checked = false;
   });
 }
 
@@ -1066,22 +1861,19 @@ authForm.addEventListener("submit", async (event) => {
   authAlert.textContent = "";
 
   try {
-    if (mode === "restaurant-login") {
-      await authenticateRestaurant();
+    if (mode === "signup") {
+      currentRestaurantSession = null;
+      currentRestaurantOrders = [];
+      currentUser = await authenticate();
+      await loadState(nick);
       authView.classList.add("hidden");
       appView.classList.remove("hidden");
-      showDashboard("restaurant");
-      renderRestaurant();
+      showDashboard("admin");
+      renderApp();
       return;
     }
 
-    currentRestaurantSession = null;
-    currentUser = await authenticate();
-    await loadState(nick);
-    authView.classList.add("hidden");
-    appView.classList.remove("hidden");
-    showDashboard("admin");
-    renderApp();
+    await loginAutomatically(nick);
   } catch (error) {
     authAlert.textContent = error.message || "Não foi possível entrar.";
   } finally {
@@ -1112,12 +1904,17 @@ logoutButtons.forEach((button) => {
 
     currentUser = null;
     currentRestaurantSession = null;
+    currentRestaurantOrders = [];
+    currentCustomerSession = null;
+    restaurantClients = [];
     state = null;
     clearStoredSession();
+    clearStoredRestaurantSession();
     appView.classList.add("hidden");
+    customerView.classList.add("hidden");
     authView.classList.remove("hidden");
     authForm.reset();
-    setMode("admin-login");
+    setMode("login");
   });
 });
 
@@ -1125,6 +1922,24 @@ restaurantForm.addEventListener("submit", createRestaurant);
 restaurantSelect.addEventListener("change", async () => {
   await selectRestaurant(restaurantSelect.value);
 });
+if (clientForm) {
+  clientForm.addEventListener("submit", createClient);
+}
+if (orderForm) {
+  orderForm.addEventListener("submit", submitCustomerOrder);
+}
+if (refreshRestaurantOrdersButton) {
+  refreshRestaurantOrdersButton.addEventListener("click", async () => {
+    refreshRestaurantOrdersButton.disabled = true;
+    refreshRestaurantOrdersButton.textContent = "Atualizando...";
+    try {
+      await refreshRestaurantOrders();
+    } finally {
+      refreshRestaurantOrdersButton.disabled = false;
+      refreshRestaurantOrdersButton.textContent = "Atualizar";
+    }
+  });
+}
 cancelDeleteButton.addEventListener("click", closeDeleteConfirmation);
 confirmDeleteButton.addEventListener("click", confirmDeleteRestaurant);
 confirmOverlay.addEventListener("click", (event) => {
@@ -1136,6 +1951,5 @@ categoryForm.addEventListener("submit", createCategory);
 subcategoryForm.addEventListener("submit", createSubcategory);
 menuForm.addEventListener("submit", createMenuItem);
 itemCategory.addEventListener("change", renderSubcategorySelect);
-addMenuDemoButton.addEventListener("click", addDemoMenu);
 
 restoreSession();

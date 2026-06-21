@@ -26,19 +26,24 @@
       <div class="auth-heading">
         <p class="eyebrow">Acesso</p>
         <h1 id="authTitle">Entrar no painel</h1>
-        <p id="authSubtitle">Use seu nick e senha para acessar os dashboards.</p>
+        <p id="authSubtitle">Use seu login e senha. O painel correto abre automaticamente.</p>
       </div>
 
       <div class="mode-switch" role="tablist" aria-label="Modo de acesso">
-        <button class="mode-button active" type="button" data-mode="admin-login" aria-selected="true">Admin</button>
-        <button class="mode-button" type="button" data-mode="restaurant-login" aria-selected="false">Restaurante</button>
-        <button class="mode-button" type="button" data-mode="signup" aria-selected="false">Criar admin</button>
+        <button class="mode-button active" type="button" data-mode="login" aria-selected="true">Entrar</button>
+        <button class="mode-button" type="button" data-mode="signup" aria-selected="false">Criar conta</button>
       </div>
 
       <form class="auth-form" id="authForm" novalidate>
+        <div class="field-group signup-only">
+          <label for="fullName">Nome</label>
+          <input id="fullName" name="fullName" type="text" autocomplete="name" placeholder="Digite seu nome">
+          <small class="field-error" data-error-for="fullName"></small>
+        </div>
+
         <div class="field-group">
-          <label for="nick" id="nickLabel">Nick</label>
-          <input id="nick" name="nick" type="text" autocomplete="username" placeholder="Digite seu nick">
+          <label for="nick" id="nickLabel">Login</label>
+          <input id="nick" name="nick" type="text" autocomplete="username" placeholder="Digite seu login">
           <small class="field-error" data-error-for="nick"></small>
         </div>
 
@@ -55,6 +60,60 @@
       </form>
 
       <div class="form-alert" id="authAlert" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <main class="customer-view hidden" id="customerView">
+    <section class="customer-shell" aria-label="Cardápio para pedidos">
+      <header class="customer-header">
+        <div class="brand-line">
+          <span class="logo-mark">W</span>
+          <strong>Waiter</strong>
+        </div>
+        <div>
+          <p class="eyebrow">Pedido online</p>
+          <h1 id="customerRestaurantName">Cardápio</h1>
+          <p id="customerMenuSubtitle">Escolha os itens do dia e envie seu pedido.</p>
+        </div>
+      </header>
+
+      <div class="customer-layout">
+        <section class="customer-menu-panel" aria-label="Itens do cardápio">
+          <div class="weekday-tabs" id="customerWeekdayTabs" aria-label="Dia do cardápio"></div>
+          <div class="customer-menu-list" id="customerMenuBody"></div>
+          <div class="empty-state hidden" id="emptyCustomerMenu">Nenhum item disponível neste dia.</div>
+        </section>
+
+        <aside class="cart-panel" aria-label="Pedido">
+          <div class="section-heading">
+            <h2>Pedido</h2>
+          </div>
+          <div class="cart-items" id="cartItems"></div>
+          <div class="empty-state compact-empty" id="emptyCart">Seu pedido está vazio.</div>
+
+          <form class="stack-form order-form" id="orderForm" novalidate>
+            <div class="field-group">
+              <label for="customerName">Nome</label>
+              <input id="customerName" name="customerName" type="text" autocomplete="name" placeholder="Seu nome">
+              <small class="field-error" data-order-error-for="customerName"></small>
+            </div>
+            <div class="field-group">
+              <label for="customerContact">Contato</label>
+              <input id="customerContact" name="customerContact" type="tel" autocomplete="tel" placeholder="WhatsApp ou telefone">
+            </div>
+            <div class="field-group">
+              <label for="tableLabel">Mesa ou endereço</label>
+              <input id="tableLabel" name="tableLabel" type="text" placeholder="Mesa 4">
+            </div>
+            <div class="field-group">
+              <label for="orderNotes">Observações</label>
+              <input id="orderNotes" name="orderNotes" type="text" placeholder="Sem cebola, ponto da carne...">
+            </div>
+            <button class="primary-button" type="submit" id="sendOrderButton">Enviar pedido</button>
+          </form>
+          <div class="form-alert" id="orderAlert" role="status" aria-live="polite"></div>
+        </aside>
+      </div>
     </section>
   </main>
 
@@ -132,10 +191,10 @@
       </div>
     </section>
 
-    <section class="workspace-card hidden" id="restaurantDashboard" aria-label="Dashboard de restaurante">
+    <section class="workspace-card hidden restaurant-panel" id="restaurantDashboard" aria-label="Dashboard de restaurante">
       <header class="workspace-header">
         <div>
-          <p class="eyebrow">Dashboard de restaurante</p>
+          <p class="eyebrow">Restaurante</p>
           <h1 id="restaurantGreeting">Cardápio</h1>
         </div>
         <div class="header-actions">
@@ -143,90 +202,124 @@
         </div>
       </header>
 
-      <div class="workspace-grid">
-        <div class="form-column">
-          <form class="stack-form" id="categoryForm" novalidate>
-            <h2>Categoria</h2>
+      <div class="restaurant-workspace simple-restaurant-workspace">
+        <aside class="restaurant-tools">
+          <section class="simple-panel menu-item-panel menu-management-panel">
+            <form class="stack-form menu-entry-form" id="menuForm" novalidate>
+              <h2>Adicionar item</h2>
+              <div class="field-group">
+                <label for="itemName">Nome</label>
+                <input id="itemName" name="itemName" type="text" placeholder="Nome do item">
+                <small class="field-error" data-menu-error-for="itemName"></small>
+              </div>
+              <div class="field-group">
+                <label for="itemCategory">Categoria</label>
+                <select id="itemCategory" name="itemCategory"></select>
+                <small class="field-error" data-menu-error-for="itemCategory"></small>
+              </div>
+              <div class="field-group compact-field">
+                <label for="itemSubcategory">Subcategoria</label>
+                <select id="itemSubcategory" name="itemSubcategory"></select>
+              </div>
+              <fieldset class="weekday-picker compact-days">
+                <legend>Dias disponíveis</legend>
+                <label><input type="checkbox" name="itemDays" value="monday">Seg</label>
+                <label><input type="checkbox" name="itemDays" value="tuesday">Ter</label>
+                <label><input type="checkbox" name="itemDays" value="wednesday">Qua</label>
+                <label><input type="checkbox" name="itemDays" value="thursday">Qui</label>
+                <label><input type="checkbox" name="itemDays" value="friday">Sex</label>
+                <label><input type="checkbox" name="itemDays" value="saturday">Sáb</label>
+                <label><input type="checkbox" name="itemDays" value="sunday">Dom</label>
+              </fieldset>
+              <button class="primary-button compact" type="submit">Adicionar ao cardápio</button>
+            </form>
+
+            <section class="category-tools" aria-label="Categorias e subcategorias">
+              <div class="section-heading compact-heading">
+                <h2>Categorias</h2>
+              </div>
+
+              <form class="stack-form inline-form category-create-form" id="categoryForm" novalidate>
+                <h3>Nova categoria</h3>
+                <div class="field-group">
+                  <label for="categoryName">Nome</label>
+                  <input id="categoryName" name="categoryName" type="text">
+                  <small class="field-error" data-category-error-for="categoryName"></small>
+                </div>
+                <button class="secondary-button compact" type="submit">Criar categoria</button>
+              </form>
+
+              <form class="stack-form inline-form subcategory-create-form" id="subcategoryForm" novalidate>
+                <h3>Nova subcategoria</h3>
+                <div class="field-group">
+                  <label for="subcategoryCategory">Categoria</label>
+                  <select id="subcategoryCategory" name="subcategoryCategory"></select>
+                  <small class="field-error" data-subcategory-error-for="subcategoryCategory"></small>
+                </div>
+                <div class="field-group">
+                  <label for="subcategoryName">Nome</label>
+                  <input id="subcategoryName" name="subcategoryName" type="text">
+                  <small class="field-error" data-subcategory-error-for="subcategoryName"></small>
+                </div>
+                <button class="secondary-button compact" type="submit">Criar subcategoria</button>
+              </form>
+            </section>
+          </section>
+
+          <form class="stack-form simple-panel client-panel" id="clientForm" novalidate>
+            <h2>Cadastrar cliente</h2>
             <div class="field-group">
-              <label for="categoryName">Nome</label>
-              <input id="categoryName" name="categoryName" type="text" placeholder="Ex: Pratos">
-              <small class="field-error" data-category-error-for="categoryName"></small>
+              <label for="clientName">Nome</label>
+              <input id="clientName" name="clientName" type="text" autocomplete="name" placeholder="Ex: Ana Souza">
+              <small class="field-error" data-client-error-for="clientName"></small>
             </div>
-            <button class="primary-button compact" type="submit">Criar categoria</button>
+            <div class="quick-grid">
+              <div class="field-group">
+                <label for="clientLogin">Login</label>
+                <input id="clientLogin" name="clientLogin" type="text" autocomplete="username" placeholder="ana.souza">
+                <small class="field-error" data-client-error-for="clientLogin"></small>
+              </div>
+              <div class="field-group">
+                <label for="clientPassword">Senha</label>
+                <input id="clientPassword" name="clientPassword" type="password" autocomplete="new-password" placeholder="Senha">
+                <small class="field-error" data-client-error-for="clientPassword"></small>
+              </div>
+            </div>
+            <button class="primary-button compact" type="submit">Cadastrar cliente</button>
           </form>
 
-          <form class="stack-form" id="subcategoryForm" novalidate>
-            <h2>Subcategoria</h2>
-            <div class="field-group">
-              <label for="subcategoryCategory">Categoria</label>
-              <select id="subcategoryCategory" name="subcategoryCategory"></select>
-              <small class="field-error" data-subcategory-error-for="subcategoryCategory"></small>
+          <section class="simple-panel client-list-panel" aria-label="Clientes cadastrados">
+            <div class="section-heading">
+              <h2>Clientes cadastrados</h2>
             </div>
-            <div class="field-group">
-              <label for="subcategoryName">Nome</label>
-              <input id="subcategoryName" name="subcategoryName" type="text" placeholder="Ex: Executivos">
-              <small class="field-error" data-subcategory-error-for="subcategoryName"></small>
-            </div>
-            <button class="primary-button compact" type="submit">Criar subcategoria</button>
-          </form>
+            <div class="client-list" id="clientListBody"></div>
+            <div class="empty-state compact-empty hidden" id="emptyClients">Nenhum cliente cadastrado.</div>
+          </section>
+        </aside>
 
-          <form class="stack-form" id="menuForm" novalidate>
-            <h2>Item</h2>
-            <div class="field-group">
-              <label for="itemName">Nome</label>
-              <input id="itemName" name="itemName" type="text" placeholder="Ex: Burger da casa">
-              <small class="field-error" data-menu-error-for="itemName"></small>
+        <div class="content-area restaurant-flow">
+          <section class="simple-panel restaurant-section">
+            <div class="weekday-tabs" id="weekdayTabs" aria-label="Dia do cardápio"></div>
+            <div class="section-heading">
+              <strong id="menuDayTitle">Cardápio de segunda</strong>
             </div>
-            <div class="field-group">
-              <label for="itemCategory">Categoria</label>
-              <select id="itemCategory" name="itemCategory"></select>
-              <small class="field-error" data-menu-error-for="itemCategory"></small>
-            </div>
-            <div class="field-group">
-              <label for="itemSubcategory">Subcategoria</label>
-              <select id="itemSubcategory" name="itemSubcategory"></select>
-            </div>
-            <div class="field-group">
-              <label for="itemPrice">Preço</label>
-              <input id="itemPrice" name="itemPrice" type="number" min="0" step="0.01" placeholder="Ex: 32.90">
-            </div>
-            <fieldset class="weekday-picker">
-              <legend>Dias</legend>
-              <label><input type="checkbox" name="itemDays" value="monday" checked>Seg</label>
-              <label><input type="checkbox" name="itemDays" value="tuesday" checked>Ter</label>
-              <label><input type="checkbox" name="itemDays" value="wednesday" checked>Qua</label>
-              <label><input type="checkbox" name="itemDays" value="thursday" checked>Qui</label>
-              <label><input type="checkbox" name="itemDays" value="friday" checked>Sex</label>
-              <label><input type="checkbox" name="itemDays" value="saturday">Sáb</label>
-              <label><input type="checkbox" name="itemDays" value="sunday">Dom</label>
-            </fieldset>
-            <button class="primary-button compact" type="submit">Adicionar item</button>
-          </form>
-        </div>
 
-        <div class="content-area">
-          <div class="weekday-tabs" id="weekdayTabs" aria-label="Dia do cardápio"></div>
-          <div class="toolbar">
-            <strong id="menuDayTitle">Cardápio de segunda</strong>
-            <button class="secondary-button" type="button" id="addMenuDemoButton">Adicionar demo</button>
-          </div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Categoria</th>
-                  <th>Subcategoria</th>
-                  <th>Preço</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="menuBody"></tbody>
-            </table>
-          </div>
-          <div class="empty-state hidden" id="emptyMenu">Nenhum item neste dia.</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Categoria</th>
+                    <th>Subcategoria</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="menuBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state hidden" id="emptyMenu">Nenhum item neste dia.</div>
+          </section>
         </div>
       </div>
     </section>
