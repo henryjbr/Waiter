@@ -227,37 +227,46 @@
             </form>
 
             <section class="category-tools" aria-label="Categorias e subcategorias">
-              <div class="section-heading compact-heading">
-                <h2>Categorias</h2>
+              <header class="category-tools-header">
+                <div>
+                  <h2>Organizar categorias</h2>
+                  <p>Crie grupos do cardápio e encaixe subcategorias sem perder o fluxo.</p>
+                </div>
+                <span id="categoryCount">0 categorias</span>
+              </header>
+
+              <div class="category-composer">
+                <form class="stack-form inline-form category-create-form" id="categoryForm" novalidate>
+                  <h3>Categoria</h3>
+                  <div class="field-group">
+                    <label for="categoryName">Nome</label>
+                    <input id="categoryName" name="categoryName" type="text" placeholder="Ex: Pratos principais">
+                    <small class="field-error" data-category-error-for="categoryName"></small>
+                  </div>
+                  <button class="secondary-button compact" type="submit">Criar</button>
+                </form>
+
+                <form class="stack-form inline-form subcategory-create-form" id="subcategoryForm" novalidate>
+                  <div class="subcategory-form-heading">
+                    <h3>Subcategoria</h3>
+                    <span id="selectedCategoryHint">Escolha uma categoria</span>
+                  </div>
+                  <div class="field-group">
+                    <label for="subcategoryCategory">Adicionar em</label>
+                    <select id="subcategoryCategory" name="subcategoryCategory"></select>
+                    <small class="field-error" data-subcategory-error-for="subcategoryCategory"></small>
+                  </div>
+                  <div class="field-group">
+                    <label for="subcategoryName">Nome</label>
+                    <input id="subcategoryName" name="subcategoryName" type="text" placeholder="Ex: Massas">
+                    <small class="field-error" data-subcategory-error-for="subcategoryName"></small>
+                  </div>
+                  <button class="secondary-button compact" type="submit">Adicionar</button>
+                </form>
               </div>
 
-              <form class="stack-form inline-form category-create-form" id="categoryForm" novalidate>
-                <h3>Nova categoria</h3>
-                <div class="field-group">
-                  <label for="categoryName">Nome</label>
-                  <input id="categoryName" name="categoryName" type="text">
-                  <small class="field-error" data-category-error-for="categoryName"></small>
-                </div>
-                <button class="secondary-button compact" type="submit">Criar categoria</button>
-              </form>
-
-              <form class="stack-form inline-form subcategory-create-form" id="subcategoryForm" novalidate>
-                <h3>Nova subcategoria</h3>
-                <div class="field-group">
-                  <label for="subcategoryCategory">Categoria</label>
-                  <select id="subcategoryCategory" name="subcategoryCategory"></select>
-                  <small class="field-error" data-subcategory-error-for="subcategoryCategory"></small>
-                </div>
-                <div class="field-group">
-                  <label for="subcategoryName">Nome</label>
-                  <input id="subcategoryName" name="subcategoryName" type="text">
-                  <small class="field-error" data-subcategory-error-for="subcategoryName"></small>
-                </div>
-                <button class="secondary-button compact" type="submit">Criar subcategoria</button>
-              </form>
-
               <div class="category-overview" id="categoryOverview" aria-label="Categorias cadastradas"></div>
-              <div class="empty-state compact-empty hidden" id="emptyCategories">Nenhuma categoria cadastrada.</div>
+              <div class="empty-state compact-empty hidden" id="emptyCategories">Crie categorias para começar a organizar o cardápio.</div>
             </section>
           </section>
 

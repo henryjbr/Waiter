@@ -50,6 +50,8 @@ const categoryForm = document.querySelector("#categoryForm");
 const subcategoryForm = document.querySelector("#subcategoryForm");
 const categoryOverview = document.querySelector("#categoryOverview");
 const emptyCategories = document.querySelector("#emptyCategories");
+const categoryCount = document.querySelector("#categoryCount");
+const selectedCategoryHint = document.querySelector("#selectedCategoryHint");
 const menuForm = document.querySelector("#menuForm");
 const subcategoryCategory = document.querySelector("#subcategoryCategory");
 const itemCategory = document.querySelector("#itemCategory");
@@ -1550,6 +1552,7 @@ function renderCategorySelects() {
   }
 
   renderSubcategorySelect();
+  updateSelectedCategoryHint();
 }
 
 function renderSubcategorySelect() {
@@ -1573,11 +1576,25 @@ function renderSubcategorySelect() {
   }
 }
 
+function updateSelectedCategoryHint() {
+  if (!selectedCategoryHint) return;
+
+  const category = getCategory(subcategoryCategory.value);
+  selectedCategoryHint.textContent = category
+    ? `Selecionada: ${category.name}`
+    : "Escolha uma categoria";
+}
+
 function renderCategoryOverview() {
   if (!categoryOverview || !emptyCategories) return;
 
   categoryOverview.innerHTML = "";
   const categories = state.restaurant.categories;
+  const itemTotal = state.restaurant.items.length;
+  if (categoryCount) {
+    categoryCount.textContent = `${categories.length} ${categories.length === 1 ? "categoria" : "categorias"} • ${itemTotal} ${itemTotal === 1 ? "item" : "itens"}`;
+  }
+
   categoryOverview.classList.toggle("hidden", categories.length === 0);
   emptyCategories.classList.toggle("hidden", categories.length > 0);
 
@@ -1589,18 +1606,22 @@ function renderCategoryOverview() {
 function categorySummaryCard(category) {
   const card = document.createElement("article");
   const header = document.createElement("div");
+  const titleBlock = document.createElement("div");
   const title = document.createElement("strong");
-  const count = document.createElement("span");
+  const meta = document.createElement("span");
   const chips = document.createElement("div");
   const actions = document.createElement("div");
   const subcategoryButton = document.createElement("button");
   const itemButton = document.createElement("button");
   const itemCount = state.restaurant.items.filter((item) => item.categoryId === category.id).length;
+  const isSelected = subcategoryCategory.value === category.id;
 
   card.className = "category-summary";
+  card.classList.toggle("selected", isSelected);
   header.className = "category-summary-header";
+  titleBlock.className = "category-title-block";
   title.textContent = category.name;
-  count.textContent = `${itemCount} ${itemCount === 1 ? "item" : "itens"}`;
+  meta.textContent = `${category.subcategories.length} ${category.subcategories.length === 1 ? "subcategoria" : "subcategorias"} • ${itemCount} ${itemCount === 1 ? "item" : "itens"}`;
 
   chips.className = "subcategory-chip-list";
   if (category.subcategories.length) {
@@ -1619,15 +1640,16 @@ function categorySummaryCard(category) {
   actions.className = "category-summary-actions";
   subcategoryButton.className = "secondary-button compact";
   subcategoryButton.type = "button";
-  subcategoryButton.textContent = "Nova subcategoria";
+  subcategoryButton.textContent = isSelected ? "Selecionada" : "Criar subcategoria";
   subcategoryButton.addEventListener("click", () => selectCategoryForSubcategory(category.id));
 
   itemButton.className = "secondary-button compact";
   itemButton.type = "button";
-  itemButton.textContent = "Adicionar item";
+  itemButton.textContent = "Usar no item";
   itemButton.addEventListener("click", () => selectCategoryForItem(category.id));
 
-  header.append(title, count);
+  titleBlock.append(title, meta);
+  header.append(titleBlock);
   actions.append(subcategoryButton, itemButton);
   card.append(header, chips, actions);
   return card;
@@ -1635,6 +1657,8 @@ function categorySummaryCard(category) {
 
 function selectCategoryForSubcategory(categoryId) {
   subcategoryCategory.value = categoryId;
+  updateSelectedCategoryHint();
+  renderCategoryOverview();
   subcategoryForm.elements.subcategoryName?.focus();
 }
 
@@ -2139,5 +2163,9 @@ categoryForm.addEventListener("submit", createCategory);
 subcategoryForm.addEventListener("submit", createSubcategory);
 menuForm.addEventListener("submit", createMenuItem);
 itemCategory.addEventListener("change", renderSubcategorySelect);
+subcategoryCategory.addEventListener("change", () => {
+  updateSelectedCategoryHint();
+  renderCategoryOverview();
+});
 
 restoreSession();
