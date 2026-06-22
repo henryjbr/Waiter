@@ -6,6 +6,7 @@ const supabaseUrl = supabaseSettings.url
   .replace(/\/auth\/v1$/, "");
 const sessionKey = "waiter.supabase.session";
 const restaurantSessionKey = "waiter.restaurant.session";
+const customerSessionKey = "waiter.customer.session";
 
 const authView = document.querySelector("#authView");
 const appView = document.querySelector("#appView");
@@ -38,6 +39,7 @@ const ordersTitle = document.querySelector("#ordersTitle");
 const ordersTableWrap = document.querySelector("#ordersTableWrap");
 const ordersBody = document.querySelector("#ordersBody");
 const emptyOrders = document.querySelector("#emptyOrders");
+const orderNotice = document.querySelector("#orderNotice");
 const confirmOverlay = document.querySelector("#confirmOverlay");
 const confirmMessage = document.querySelector("#confirmMessage");
 const cancelDeleteButton = document.querySelector("#cancelDeleteButton");
@@ -46,6 +48,8 @@ const confirmDeleteButton = document.querySelector("#confirmDeleteButton");
 const restaurantGreeting = document.querySelector("#restaurantGreeting");
 const categoryForm = document.querySelector("#categoryForm");
 const subcategoryForm = document.querySelector("#subcategoryForm");
+const categoryOverview = document.querySelector("#categoryOverview");
+const emptyCategories = document.querySelector("#emptyCategories");
 const menuForm = document.querySelector("#menuForm");
 const subcategoryCategory = document.querySelector("#subcategoryCategory");
 const itemCategory = document.querySelector("#itemCategory");
@@ -85,6 +89,8 @@ let activeDay = getTodayKey();
 let restaurantPendingDeletionId = "";
 let clientPendingDeletionId = "";
 let session = readStoredSession();
+let adminOrderPollId = null;
+let knownAdminOrderIds = new Set();
 
 const weekdays = [
   ["monday", "Segunda"],
@@ -132,6 +138,14 @@ function readStoredRestaurantSession() {
   }
 }
 
+function readStoredCustomerSession() {
+  try {
+    return JSON.parse(localStorage.getItem(customerSessionKey));
+  } catch {
+    return null;
+  }
+}
+
 function storeSession(authData) {
   session = {
     access_token: authData.access_token,
@@ -158,6 +172,18 @@ function storeRestaurantSession(credentials) {
 
 function clearStoredRestaurantSession() {
   localStorage.removeItem(restaurantSessionKey);
+}
+
+function storeCustomerSession(credentials) {
+  localStorage.setItem(customerSessionKey, JSON.stringify({
+    login: credentials.login,
+    password: credentials.password,
+    savedAt: new Date().toISOString()
+  }));
+}
+
+function clearStoredCustomerSession() {
+  localStorage.removeItem(customerSessionKey);
 }
 
 async function requestSupabase(path, options = {}) {
@@ -438,6 +464,10 @@ async function authenticateCustomer() {
   const login = String(data.get("nick") || "").trim();
   const password = String(data.get("password") || "");
 
+  return loginCustomerWithCredentials(login, password);
+}
+
+async function loginCustomerWithCredentials(login, password) {
   const rows = await requestSupabase("/rest/v1/rpc/login_customer", {
     method: "POST",
     auth: false,
@@ -479,12 +509,14 @@ async function loginAutomatically(nick) {
     currentRestaurantOrders = [];
     restaurantClients = [];
     clearStoredRestaurantSession();
+    clearStoredCustomerSession();
     currentUser = await authenticate();
     await loadState(nick);
     authView.classList.add("hidden");
     appView.classList.remove("hidden");
     showDashboard("admin");
     renderApp();
+    startAdminOrderPolling();
     return;
   } catch (adminError) {
     if (String(adminError?.message || "").includes("Supabase")) {
@@ -499,12 +531,14 @@ async function loginAutomatically(nick) {
     await authenticateRestaurant();
     currentCustomerSession = null;
     storeRestaurantSession(currentRestaurantSession);
+    clearStoredCustomerSession();
     await refreshRestaurantClients();
     authView.classList.add("hidden");
     appView.classList.remove("hidden");
     customerView.classList.add("hidden");
     showDashboard("restaurant");
     renderRestaurant();
+    stopAdminOrderPolling();
     return;
   } catch {
     currentRestaurantSession = null;
@@ -515,10 +549,12 @@ async function loginAutomatically(nick) {
   try {
     await authenticateCustomer();
     clearStoredRestaurantSession();
+    storeCustomerSession({ login: currentCustomerSession.login, password: String(new FormData(authForm).get("password") || "") });
     authView.classList.add("hidden");
     appView.classList.add("hidden");
     customerView.classList.remove("hidden");
     renderCustomerView();
+    stopAdminOrderPolling();
   } catch {
     throw new Error("Login ou senha incorretos.");
   }
@@ -593,6 +629,62 @@ async function loadRestaurantRecords() {
   state.admin.restaurants.forEach((restaurant) => {
     restaurant.orders = Array.isArray(restaurant.orders) ? restaurant.orders : [];
   });
+}
+
+function getOrderKey(restaurantId, order) {
+  return [restaurantId, order?.id || order?.createdAt || JSON.stringify(order)].join(":");
+}
+
+function getAdminOrderKeys() {
+  const keys = new Set();
+  state?.admin?.restaurants?.forEach((restaurant) => {
+    (restaurant.orders || []).forEach((order) => {
+      keys.add(getOrderKey(restaurant.id, order));
+    });
+  });
+  return keys;
+}
+
+function primeAdminOrderTracking() {
+  knownAdminOrderIds = getAdminOrderKeys();
+}
+
+function showAdminOrderNotice(count) {
+  if (!orderNotice) return;
+
+  orderNotice.textContent = count === 1
+    ? "Novo pedido recebido."
+    : `${count} novos pedidos recebidos.`;
+  orderNotice.classList.remove("hidden");
+}
+
+async function pollAdminOrders() {
+  if (!currentUser?.id || !state?.admin?.restaurants?.length) return;
+
+  const before = knownAdminOrderIds.size ? knownAdminOrderIds : getAdminOrderKeys();
+  await loadRestaurantRecords();
+  const after = getAdminOrderKeys();
+  const newOrderCount = [...after].filter((key) => !before.has(key)).length;
+  knownAdminOrderIds = after;
+
+  if (newOrderCount > 0) {
+    showAdminOrderNotice(newOrderCount);
+    renderAdmin();
+  }
+}
+
+function startAdminOrderPolling() {
+  stopAdminOrderPolling();
+  primeAdminOrderTracking();
+  adminOrderPollId = window.setInterval(() => {
+    pollAdminOrders().catch(console.error);
+  }, 5000);
+}
+
+function stopAdminOrderPolling() {
+  if (!adminOrderPollId) return;
+  window.clearInterval(adminOrderPollId);
+  adminOrderPollId = null;
 }
 
 async function deleteRestaurantRecord(restaurantId) {
@@ -770,6 +862,7 @@ async function getSessionNick(user) {
 
 async function restoreSession() {
   if (isPublicOrderRoute()) {
+    stopAdminOrderPolling();
     try {
       await loadPublicCustomerMenu();
     } catch (error) {
@@ -800,6 +893,7 @@ async function restoreSession() {
       customerView.classList.add("hidden");
       showDashboard("restaurant");
       renderRestaurant();
+      stopAdminOrderPolling();
       finishBoot();
       return;
     } catch {
@@ -807,6 +901,23 @@ async function restoreSession() {
       currentRestaurantOrders = [];
       restaurantClients = [];
       clearStoredRestaurantSession();
+    }
+  }
+
+  const storedCustomerSession = readStoredCustomerSession();
+  if (storedCustomerSession?.login && storedCustomerSession?.password) {
+    try {
+      await loginCustomerWithCredentials(storedCustomerSession.login, storedCustomerSession.password);
+      authView.classList.add("hidden");
+      appView.classList.add("hidden");
+      customerView.classList.remove("hidden");
+      renderCustomerView();
+      stopAdminOrderPolling();
+      finishBoot();
+      return;
+    } catch {
+      currentCustomerSession = null;
+      clearStoredCustomerSession();
     }
   }
 
@@ -824,12 +935,14 @@ async function restoreSession() {
     appView.classList.remove("hidden");
     showDashboard("admin");
     renderApp();
+    startAdminOrderPolling();
   } catch (restoreError) {
     currentUser = null;
     currentRestaurantSession = null;
     currentCustomerSession = null;
     state = null;
     clearStoredSession();
+    clearStoredCustomerSession();
     setMode("login");
     authForm.reset();
     if (isInvalidSessionError(restoreError)) {
@@ -1113,6 +1226,7 @@ async function submitCustomerOrder(event) {
   }
 
   const now = new Date();
+  const address = String(data.get("tableLabel") || "").trim();
   const order = {
     id: now.getTime().toString().slice(-7),
     status: "Novo",
@@ -1120,7 +1234,8 @@ async function submitCustomerOrder(event) {
     customerLogin: currentCustomerSession?.login || "",
     customerName,
     customerContact: String(data.get("customerContact") || "").trim(),
-    tableLabel: String(data.get("tableLabel") || "").trim(),
+    address,
+    tableLabel: address,
     notes: String(data.get("orderNotes") || "").trim(),
     items: customerCart.map((item) => ({
       id: item.id,
@@ -1171,6 +1286,9 @@ function renderAdmin() {
   restaurantLoginWrap.classList.toggle("hidden", !hasRestaurants);
   emptyRestaurants.classList.toggle("hidden", hasRestaurants);
   ordersHeader.classList.toggle("hidden", !hasRestaurants);
+  if (!hasRestaurants) {
+    orderNotice?.classList.add("hidden");
+  }
 
   state.admin.restaurants.forEach((restaurant) => {
     const option = document.createElement("option");
@@ -1197,21 +1315,8 @@ function renderAdmin() {
   ordersTableWrap.classList.toggle("hidden", !hasRestaurants || orders.length === 0);
   emptyOrders.classList.toggle("hidden", !hasRestaurants || orders.length > 0);
 
-  orders.forEach((order) => {
-    const row = document.createElement("tr");
-    const cells = [
-      tableCell(`#${order.id}`),
-      tableCell(formatOrderItems(order)),
-      tableCell(order.status, true),
-      tableCell(formatOrderTime(order))
-    ];
-
-    ["Pedido", "Itens", "Status", "Hora"].forEach((label, index) => {
-      cells[index].dataset.label = label;
-    });
-
-    row.append(...cells);
-    ordersBody.appendChild(row);
+  orders.slice().reverse().forEach((order) => {
+    ordersBody.appendChild(createOrderCard(order));
   });
 }
 
@@ -1235,6 +1340,56 @@ function formatOrderTime(order) {
   });
 }
 
+function getOrderAddress(order) {
+  return order.address || order.tableLabel || "";
+}
+
+function createOrderCard(order) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const title = document.createElement("strong");
+  const status = document.createElement("span");
+  const main = document.createElement("div");
+  const items = document.createElement("p");
+  const details = document.createElement("div");
+  const detailEntries = [
+    ["Cliente", order.customerName],
+    ["Endereço", getOrderAddress(order)],
+    ["Contato", order.customerContact],
+    ["Hora", formatOrderTime(order)]
+  ];
+
+  card.className = "order-card";
+  header.className = "order-card-header";
+  title.textContent = `#${order.id || "Pedido"}`;
+  status.className = `status-chip ${order.status === "Novo" || order.status === "Ativo" || order.status === "Preparando" ? "status-active" : "status-paused"}`;
+  status.textContent = order.status || "Novo";
+
+  main.className = "order-card-main";
+  items.textContent = formatOrderItems(order);
+  details.className = "order-card-details";
+
+  detailEntries.forEach(([label, value]) => {
+    if (!value) return;
+    const entry = document.createElement("span");
+    entry.textContent = `${label}: ${value}`;
+    details.appendChild(entry);
+  });
+
+  header.append(title, status);
+  main.append(items, details);
+
+  if (order.notes) {
+    const notes = document.createElement("p");
+    notes.className = "order-notes";
+    notes.textContent = `Observações: ${order.notes}`;
+    main.appendChild(notes);
+  }
+
+  card.append(header, main);
+  return card;
+}
+
 function renderRestaurantOrders() {
   if (!restaurantOrdersBody || !emptyRestaurantOrders) return;
 
@@ -1242,34 +1397,7 @@ function renderRestaurantOrders() {
   emptyRestaurantOrders.classList.toggle("hidden", currentRestaurantOrders.length > 0);
 
   currentRestaurantOrders.slice().reverse().forEach((order) => {
-    const card = document.createElement("article");
-    const header = document.createElement("div");
-    const title = document.createElement("strong");
-    const status = document.createElement("span");
-    const main = document.createElement("div");
-    const items = document.createElement("p");
-    const customer = document.createElement("p");
-
-    card.className = "order-card";
-    header.className = "order-card-header";
-    title.textContent = `#${order.id || "Pedido"}`;
-    status.className = `status-chip ${order.status === "Novo" || order.status === "Ativo" || order.status === "Preparando" ? "status-active" : "status-paused"}`;
-    status.textContent = order.status || "Novo";
-
-    main.className = "order-card-main";
-    items.textContent = formatOrderItems(order);
-    customer.textContent = [order.customerName, order.tableLabel, order.customerContact, formatOrderTime(order)]
-      .filter(Boolean)
-      .join(" • ");
-    header.append(title, status);
-    main.append(items, customer);
-    if (order.notes) {
-      const notes = document.createElement("p");
-      notes.textContent = order.notes;
-      main.appendChild(notes);
-    }
-    card.append(header, main);
-    restaurantOrdersBody.appendChild(card);
+    restaurantOrdersBody.appendChild(createOrderCard(order));
   });
 }
 
@@ -1320,7 +1448,6 @@ function restaurantAccessRow(restaurant, isSelected) {
   const password = document.createElement("span");
   const actions = document.createElement("div");
   const menuLink = document.createElement("a");
-  const copyLinkButton = document.createElement("button");
   const selectButton = document.createElement("button");
   const deleteButton = document.createElement("button");
 
@@ -1343,17 +1470,6 @@ function restaurantAccessRow(restaurant, isSelected) {
   menuLink.rel = "noreferrer";
   menuLink.textContent = "Cardápio";
 
-  copyLinkButton.className = "secondary-button";
-  copyLinkButton.type = "button";
-  copyLinkButton.textContent = "Copiar link";
-  copyLinkButton.addEventListener("click", async () => {
-    await copyRestaurantLink(restaurant.login || "");
-    copyLinkButton.textContent = "Copiado";
-    window.setTimeout(() => {
-      copyLinkButton.textContent = "Copiar link";
-    }, 1600);
-  });
-
   selectButton.className = "secondary-button";
   selectButton.type = "button";
   selectButton.textContent = isSelected ? "Selecionado" : "Selecionar";
@@ -1366,7 +1482,7 @@ function restaurantAccessRow(restaurant, isSelected) {
   deleteButton.addEventListener("click", () => requestDeleteRestaurant(restaurant.id));
 
   main.append(name, credentials);
-  actions.append(menuLink, copyLinkButton, selectButton, deleteButton);
+  actions.append(menuLink, selectButton, deleteButton);
   row.append(main, actions);
 
   row.addEventListener("click", (event) => {
@@ -1382,21 +1498,6 @@ function restaurantAccessRow(restaurant, isSelected) {
   });
 
   return row;
-}
-
-async function copyRestaurantLink(login) {
-  const link = getRestaurantMenuUrl(login);
-
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(link);
-      return;
-    } catch {
-      // Falls back to the prompt below when clipboard permission is unavailable.
-    }
-  }
-
-  window.prompt("Link do cardápio", link);
 }
 
 function credentialText(value) {
@@ -1416,6 +1517,7 @@ function renderRestaurant() {
   restaurantGreeting.textContent = state.restaurant.name;
   renderClients();
   renderCategorySelects();
+  renderCategoryOverview();
   renderWeekdayTabs();
   renderMenu();
 }
@@ -1469,6 +1571,77 @@ function renderSubcategorySelect() {
   if (category.subcategories.some((subcategory) => subcategory.id === previous)) {
     itemSubcategory.value = previous;
   }
+}
+
+function renderCategoryOverview() {
+  if (!categoryOverview || !emptyCategories) return;
+
+  categoryOverview.innerHTML = "";
+  const categories = state.restaurant.categories;
+  categoryOverview.classList.toggle("hidden", categories.length === 0);
+  emptyCategories.classList.toggle("hidden", categories.length > 0);
+
+  categories.forEach((category) => {
+    categoryOverview.appendChild(categorySummaryCard(category));
+  });
+}
+
+function categorySummaryCard(category) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const title = document.createElement("strong");
+  const count = document.createElement("span");
+  const chips = document.createElement("div");
+  const actions = document.createElement("div");
+  const subcategoryButton = document.createElement("button");
+  const itemButton = document.createElement("button");
+  const itemCount = state.restaurant.items.filter((item) => item.categoryId === category.id).length;
+
+  card.className = "category-summary";
+  header.className = "category-summary-header";
+  title.textContent = category.name;
+  count.textContent = `${itemCount} ${itemCount === 1 ? "item" : "itens"}`;
+
+  chips.className = "subcategory-chip-list";
+  if (category.subcategories.length) {
+    category.subcategories.forEach((subcategory) => {
+      const chip = document.createElement("span");
+      chip.textContent = subcategory.name;
+      chips.appendChild(chip);
+    });
+  } else {
+    const empty = document.createElement("span");
+    empty.className = "muted-chip";
+    empty.textContent = "Sem subcategorias";
+    chips.appendChild(empty);
+  }
+
+  actions.className = "category-summary-actions";
+  subcategoryButton.className = "secondary-button compact";
+  subcategoryButton.type = "button";
+  subcategoryButton.textContent = "Nova subcategoria";
+  subcategoryButton.addEventListener("click", () => selectCategoryForSubcategory(category.id));
+
+  itemButton.className = "secondary-button compact";
+  itemButton.type = "button";
+  itemButton.textContent = "Adicionar item";
+  itemButton.addEventListener("click", () => selectCategoryForItem(category.id));
+
+  header.append(title, count);
+  actions.append(subcategoryButton, itemButton);
+  card.append(header, chips, actions);
+  return card;
+}
+
+function selectCategoryForSubcategory(categoryId) {
+  subcategoryCategory.value = categoryId;
+  subcategoryForm.elements.subcategoryName?.focus();
+}
+
+function selectCategoryForItem(categoryId) {
+  itemCategory.value = categoryId;
+  renderSubcategorySelect();
+  menuForm.elements.itemName?.focus();
 }
 
 function renderWeekdayTabs() {
@@ -1555,34 +1728,6 @@ function option(value, text) {
   item.value = value;
   item.textContent = text;
   return item;
-}
-
-function tableCell(content, status = false, codeStyle = false) {
-  const cell = document.createElement("td");
-
-  if (content instanceof HTMLElement) {
-    cell.appendChild(content);
-    return cell;
-  }
-
-  if (codeStyle) {
-    const code = document.createElement("span");
-    code.className = "credential-text";
-    code.textContent = content;
-    cell.appendChild(code);
-    return cell;
-  }
-
-  if (status) {
-    const chip = document.createElement("span");
-    chip.className = `status-chip ${content === "Ativo" || content === "Novo" || content === "Preparando" ? "status-active" : "status-paused"}`;
-    chip.textContent = content;
-    cell.appendChild(chip);
-    return cell;
-  }
-
-  cell.textContent = content;
-  return cell;
 }
 
 async function createRestaurant(event) {
@@ -1770,14 +1915,22 @@ async function createCategory(event) {
     return;
   }
 
-  state.restaurant.categories.push({
+  if (state.restaurant.categories.some((category) => String(category.name || "").trim().toLowerCase() === name.toLowerCase())) {
+    showFieldError(categoryForm, "categoryName", "Essa categoria já existe.");
+    return;
+  }
+
+  const category = {
     id: createId("category"),
     name,
     subcategories: []
-  });
+  };
+
+  state.restaurant.categories.push(category);
   categoryForm.reset();
   await saveRestaurantWorkspace();
   renderRestaurant();
+  selectCategoryForSubcategory(category.id);
 }
 
 async function createSubcategory(event) {
@@ -1798,10 +1951,16 @@ async function createSubcategory(event) {
     return;
   }
 
+  if (category.subcategories.some((subcategory) => String(subcategory.name || "").trim().toLowerCase() === name.toLowerCase())) {
+    showFieldError(subcategoryForm, "subcategoryName", "Essa subcategoria já existe nessa categoria.");
+    return;
+  }
+
   category.subcategories.push({ id: createId("subcategory"), name });
   subcategoryForm.reset();
   await saveRestaurantWorkspace();
   renderRestaurant();
+  selectCategoryForSubcategory(category.id);
 }
 
 async function createMenuItem(event) {
@@ -1887,12 +2046,16 @@ authForm.addEventListener("submit", async (event) => {
     if (mode === "signup") {
       currentRestaurantSession = null;
       currentRestaurantOrders = [];
+      currentCustomerSession = null;
+      clearStoredRestaurantSession();
+      clearStoredCustomerSession();
       currentUser = await authenticate();
       await loadState(nick);
       authView.classList.add("hidden");
       appView.classList.remove("hidden");
       showDashboard("admin");
       renderApp();
+      startAdminOrderPolling();
       return;
     }
 
@@ -1931,8 +2094,10 @@ logoutButtons.forEach((button) => {
     currentCustomerSession = null;
     restaurantClients = [];
     state = null;
+    stopAdminOrderPolling();
     clearStoredSession();
     clearStoredRestaurantSession();
+    clearStoredCustomerSession();
     appView.classList.add("hidden");
     customerView.classList.add("hidden");
     authView.classList.remove("hidden");

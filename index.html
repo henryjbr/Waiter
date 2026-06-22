@@ -102,8 +102,8 @@
               <input id="customerContact" name="customerContact" type="tel" autocomplete="tel" placeholder="WhatsApp ou telefone">
             </div>
             <div class="field-group">
-              <label for="tableLabel">Mesa ou endereço</label>
-              <input id="tableLabel" name="tableLabel" type="text" placeholder="Mesa 4">
+              <label for="tableLabel">Endereço</label>
+              <input id="tableLabel" name="tableLabel" type="text" autocomplete="street-address" placeholder="Rua, número, bairro">
             </div>
             <div class="field-group">
               <label for="orderNotes">Observações</label>
@@ -173,18 +173,10 @@
             <h2 id="ordersTitle">Pedidos</h2>
           </div>
 
-          <div class="table-wrap" id="ordersTableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Pedido</th>
-                  <th>Itens</th>
-                  <th>Status</th>
-                  <th>Hora</th>
-                </tr>
-              </thead>
-              <tbody id="ordersBody"></tbody>
-            </table>
+          <div class="order-notice hidden" id="orderNotice" role="status" aria-live="polite"></div>
+
+          <div class="admin-order-list" id="ordersTableWrap">
+            <div id="ordersBody"></div>
           </div>
           <div class="empty-state hidden" id="emptyOrders">Nenhum pedido neste restaurante.</div>
         </div>
@@ -263,6 +255,9 @@
                 </div>
                 <button class="secondary-button compact" type="submit">Criar subcategoria</button>
               </form>
+
+              <div class="category-overview" id="categoryOverview" aria-label="Categorias cadastradas"></div>
+              <div class="empty-state compact-empty hidden" id="emptyCategories">Nenhuma categoria cadastrada.</div>
             </section>
           </section>
 

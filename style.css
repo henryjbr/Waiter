@@ -369,6 +369,7 @@ select.has-error {
 
 .customer-menu-list,
 .cart-items,
+.admin-order-list #ordersBody,
 .restaurant-order-list,
 .client-list {
   display: grid;
@@ -452,8 +453,40 @@ select.has-error {
   margin-bottom: 12px;
 }
 
+.order-notice {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  color: var(--accent-dark);
+  background: var(--soft);
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.admin-order-list {
+  display: grid;
+  gap: 10px;
+}
+
 .order-card {
   margin-bottom: 10px;
+}
+
+.order-card-details {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.order-card-details span {
+  overflow-wrap: anywhere;
+}
+
+.order-notes {
+  overflow-wrap: anywhere;
 }
 
 .client-row {
@@ -792,6 +825,70 @@ select.has-error {
 .inline-form + .inline-form {
   margin-top: 0;
   border-top: 0;
+}
+
+.category-overview {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+}
+
+.category-summary {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(23, 23, 23, 0.1);
+  border-radius: 14px;
+}
+
+.category-summary-header,
+.category-summary-actions,
+.subcategory-chip-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.category-summary-header {
+  justify-content: space-between;
+}
+
+.category-summary-header strong {
+  overflow-wrap: anywhere;
+}
+
+.category-summary-header span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.subcategory-chip-list span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  color: var(--accent-dark);
+  background: var(--soft);
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.subcategory-chip-list .muted-chip {
+  color: var(--muted);
+  background: #f9fafb;
+  border-color: rgba(23, 23, 23, 0.08);
+}
+
+.category-summary-actions .secondary-button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.82rem;
 }
 
 .stack-form:last-child {
@@ -1325,8 +1422,14 @@ tr:last-child td {
   .header-actions .ghost-button,
   .restaurant-row-actions .secondary-button,
   .category-create-form .secondary-button,
-  .subcategory-create-form .secondary-button {
+  .subcategory-create-form .secondary-button,
+  .category-summary-actions .secondary-button {
     width: 100%;
+  }
+
+  .category-summary-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
