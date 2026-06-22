@@ -364,8 +364,9 @@ async function authenticate() {
           auth: false,
           body: JSON.stringify({ email, password })
         });
-      } catch {
-        throw new Error("Esse login já existe. Entre com a senha correta ou use outro login.");
+      } catch (loginError) {
+        const status = loginError?.status ? ` Supabase retornou ${loginError.status}.` : "";
+        throw new Error(`Esse login já existe no Auth do Supabase. Rode o reset-database.sql no SQL Editor ou use outro login.${status}`);
       }
     }
 

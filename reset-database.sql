@@ -1,5 +1,5 @@
 -- ATENCAO: este script apaga todas as contas e dados do projeto Supabase.
--- Rode somente no SQL Editor do projeto certo.
+-- Rode somente no SQL Editor do projeto certo, logado como dono/admin.
 
 truncate table
   public.restaurant_customers,
@@ -8,6 +8,6 @@ truncate table
   public.profiles
 restart identity cascade;
 
-delete from auth.users;
+truncate table auth.users restart identity cascade;
 
 notify pgrst, 'reload schema';
