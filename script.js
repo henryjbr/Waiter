@@ -281,7 +281,24 @@ function isInvalidSessionError(error) {
 
 function isAlreadyRegisteredError(error) {
   const message = String(error?.message || "").toLowerCase();
-  return error?.status === 422 || message.includes("already registered") || message.includes("already exists");
+  return message.includes("already registered")
+    || message.includes("user already registered")
+    || message.includes("already exists")
+    || message.includes("already been registered");
+}
+
+function getSignupErrorMessage(error) {
+  const message = String(error?.message || "").toLowerCase();
+
+  if (isAlreadyRegisteredError(error)) {
+    return "Esse login já existe. Entre com a senha correta ou use outro login.";
+  }
+
+  if (message.includes("password") && (message.includes("6") || message.includes("weak") || message.includes("short"))) {
+    return "A senha precisa ter pelo menos 6 caracteres.";
+  }
+
+  return error?.message || "Não foi possível criar a conta.";
 }
 
 function validateAuth() {
@@ -307,6 +324,11 @@ function validateAuth() {
     valid = false;
   }
 
+  if (mode === "signup" && password && password.length < 6) {
+    showFieldError(authForm, "password", "A senha precisa ter pelo menos 6 caracteres.");
+    valid = false;
+  }
+
   return valid;
 }
 
@@ -322,18 +344,18 @@ async function authenticate() {
 
     try {
       authData = await requestSupabase("/auth/v1/signup", {
-      method: "POST",
-      auth: false,
-      body: JSON.stringify({
-        email,
-        password,
-        data: { nick, name }
-      })
-    });
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({
+          email,
+          password,
+          data: { nick, name }
+        })
+      });
 
     } catch (signupError) {
       if (!isAlreadyRegisteredError(signupError)) {
-        throw signupError;
+        throw new Error(getSignupErrorMessage(signupError));
       }
 
       try {
