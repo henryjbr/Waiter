@@ -54,9 +54,6 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Preparar plataforma Android
-        run: npx cordova platform add android@15.0.0 --nosave
-
       - name: Validar JavaScript
         run: npm test
 

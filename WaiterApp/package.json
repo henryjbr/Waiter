@@ -8,9 +8,10 @@
     "sync:web": "node scripts/sync-web.js",
     "check:web": "node --check ../script.js && node --check ../supabase-config.js",
     "android:check": "cordova requirements android",
-    "android:prepare": "npm run sync:web && cordova prepare android",
-    "android:build": "npm run sync:web && cordova build android --debug",
-    "android:release": "npm run sync:web && cordova build android --release",
+    "android:ensure": "node scripts/ensure-android.js",
+    "android:prepare": "npm run sync:web && npm run android:ensure && cordova prepare android",
+    "android:build": "npm run sync:web && npm run android:ensure && cordova build android --debug",
+    "android:release": "npm run sync:web && npm run android:ensure && cordova build android --release",
     "test": "npm run check:web"
   },
   "keywords": [
