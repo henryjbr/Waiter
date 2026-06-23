@@ -2,18 +2,25 @@
   "name": "com.waiter.app",
   "displayName": "Waiter",
   "version": "1.0.0",
-  "description": "A sample Apache Cordova application that responds to the deviceready event.",
+  "description": "Aplicativo Android do Waiter.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "sync:web": "node scripts/sync-web.js",
+    "check:web": "node --check ../script.js && node --check ../supabase-config.js",
+    "android:check": "cordova requirements android",
+    "android:prepare": "npm run sync:web && cordova prepare android",
+    "android:build": "npm run sync:web && cordova build android --debug",
+    "android:release": "npm run sync:web && cordova build android --release",
+    "test": "npm run check:web"
   },
   "keywords": [
     "ecosystem:cordova"
   ],
-  "author": "Apache Cordova Team",
+  "author": "Waiter",
   "license": "Apache-2.0",
   "devDependencies": {
-    "cordova-android": "^15.0.0"
+    "cordova": "13.0.0",
+    "cordova-android": "15.0.0"
   },
   "cordova": {
     "platforms": [
