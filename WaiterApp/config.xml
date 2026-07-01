@@ -3,7 +3,7 @@
     <name>Waiter</name>
     <description>Aplicativo de pedidos e gestão do Waiter.</description>
     <author>Waiter</author>
-    <content src="index.html" />
+    <content src="dist/index.html" />
     <access origin="https://qylmdbwyjexyzegwcqim.supabase.co" />
     <access origin="https://fonts.googleapis.com" />
     <access origin="https://fonts.gstatic.com" />
